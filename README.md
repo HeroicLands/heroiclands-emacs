@@ -60,7 +60,7 @@ The content features activate in a markdown buffer inside a project carrying
 
 ## Install
 
-Clone it, build the manual, and load it:
+Clone it and build the manual:
 
 ```bash
 git clone https://github.com/HeroicLands/heroiclands-emacs.git \
@@ -68,54 +68,132 @@ git clone https://github.com/HeroicLands/heroiclands-emacs.git \
 make -C ~/dev/github/heroiclands-emacs
 ```
 
+## Activating it
+
+Add this to your init file. The `require` lines load the package; the last
+line is what actually turns the mode on:
+
 ```elisp
 (add-to-list 'load-path "~/dev/github/heroiclands-emacs")
-(require 'heroiclands)
-(require 'heroiclands-hbs)
-(require 'heroiclands-dataview)
-(require 'heroiclands-index)
-(require 'heroiclands-goto)
 
+(require 'heroiclands)            ; the constellation, and the C-c h map
+(require 'heroiclands-index)      ; the content index
+(require 'heroiclands-goto)       ; wikilink completion and normalization
+(require 'heroiclands-dataview)   ; content-table previews
+(require 'heroiclands-hbs)        ; Handlebars helper completion
+
+(global-heroiclands-mode 1)       ; turn it on where it applies
+```
+
+Each `require` after the first is optional — load only the features you want,
+and the mode installs whichever are present.
+
+With `use-package` and a VC recipe (Emacs 30+):
+
+```elisp
+(use-package heroiclands
+  :vc (:url "https://github.com/HeroicLands/heroiclands-emacs" :rev :newest)
+  :config
+  (require 'heroiclands-index)
+  (require 'heroiclands-goto)
+  (require 'heroiclands-dataview)
+  (global-heroiclands-mode 1))
+```
+
+Or with `straight.el`:
+
+```elisp
+(straight-use-package
+ '(heroiclands :type git :host github :repo "HeroicLands/heroiclands-emacs"))
 (global-heroiclands-mode 1)
 ```
 
-## The mode
+### Where it turns itself on
 
-The buffer-local half is a minor mode, `heroiclands-mode` — the wikilink
-machinery and the completions, everything genuinely about *this* buffer.
-`C-h m` describes it; the `HL` lighter says when it is on.
+`global-heroiclands-mode` enables `heroiclands-mode` in any **markdown buffer
+visiting a file inside a project that carries `package-build.config.yaml`**.
+That is the whole test, so a note in a new repository is covered the day the
+repository exists, and nothing needs marking.
 
-`global-heroiclands-mode` turns it on in any markdown buffer inside a project
-carrying `package-build.config.yaml`, so normally there is nothing to mark. To
-enable it somewhere that rule would not catch:
+The `HL` lighter in the mode line says when it is on. `C-h m` describes it.
+
+### Turning it on somewhere else
+
+For a file the rule would not catch, a file-local variable — the first `mode:`
+names the major mode, and every later one names a minor mode:
 
 ```markdown
 <!-- -*- mode: markdown; mode: heroiclands; -*- -->
 ```
 
-or for a whole tree, a `.dir-locals.el`:
+or at the end of the file:
+
+```markdown
+<!-- Local Variables: -->
+<!-- mode: heroiclands -->
+<!-- End: -->
+```
+
+For a whole tree, a `.dir-locals.el` beside it:
 
 ```elisp
 ((markdown-mode . ((mode . heroiclands))))
 ```
 
-or just `M-x heroiclands-mode`. Turning it off removes the completions, the
-wikilink machinery, and any table previews from that buffer.
+Or just `M-x heroiclands-mode`. Turning it off removes the completions, the
+wikilink machinery, and any table previews from that buffer — which is the
+point of it being a mode.
 
-The `C-c h` prefix is deliberately **not** part of the mode and stays global:
-jumping between repositories is something you do from anywhere.
+### What is *not* in the mode
 
-With `use-package` and a straight/elpaca-style recipe, point it at this
-repository and require the same five features.
+The `C-c h` prefix stays global on purpose. Jumping between repositories and
+grepping across all of them are things you do from anywhere, including from a
+buffer belonging to no project at all.
+
+## Configuration
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `heroiclands-root` | `~/dev/github` | Where the repositories live |
+| `heroiclands-marker` | `package-build.config.yaml` | What marks a project |
+| `heroiclands-index-relative-dir` | `build/content-index` | Where the index is written |
+| `heroiclands-goto-canonicalize-on-close` | `t` | Rewrite a link when `]]` is typed |
+| `heroiclands-dataview-max-rows` | `40` | Preview truncation; `nil` for all |
+| `heroiclands-index-jq` | `jq` | The jq executable |
 
 ## Documentation
 
-`C-c h ?` opens the manual, which is also listed in `C-h i` under Emacs
-alongside every other Emacs manual. Every command documents itself in `C-h f`
-and links back into the relevant manual node.
+The manual is an Info manual, so it lives where Emacs documentation lives:
 
-`make` builds `info/heroiclands.info` from `doc/heroiclands.texi`; the built
-file is not committed.
+- `C-c h ?` opens it.
+- `C-h i` lists it under **Emacs**, beside the Emacs manual and every other.
+- `C-h f` on any command describes it and links back into the relevant node.
+- `C-h m` in a content note describes the mode.
+
+### Building it
+
+The manual is written in [Texinfo](https://www.gnu.org/software/texinfo/) and
+compiled by `makeinfo`, which ships with GNU Texinfo:
+
+```bash
+make info      # makeinfo --no-split -o info/heroiclands.info doc/heroiclands.texi
+```
+
+`make` alone does the same. The built `info/heroiclands.info` is **not
+committed** — it is generated, so clone-then-`make` is the install.
+
+If `makeinfo` is missing, install GNU Texinfo (`brew install texinfo`,
+`apt install texinfo`). Its own manual is the reference for the source format:
+
+- [Texinfo manual](https://www.gnu.org/software/texinfo/manual/texinfo/) — the
+  markup used in `doc/heroiclands.texi`
+- [`makeinfo` invocation](https://www.gnu.org/software/texinfo/manual/texinfo/html_node/Invoking-texi2any.html)
+  — the command's own options
+- `info texinfo` locally, once Texinfo is installed
+
+The package registers its own `info/` directory with `Info-directory-list`, so
+the manual appears in `C-h i` without an `install-info` step or any change to
+`INFOPATH`.
 
 ## Layout
 

@@ -33,6 +33,19 @@
 
 (require 'project)
 (require 'subr-x)
+(require 'compile)
+
+;; Declared rather than required: `info' is loaded on demand, and the only
+;; use below is inside `with-eval-after-load'.
+(defvar Info-directory-list)
+
+;; Optional siblings — the `C-c h' map binds them when they are loaded.
+(declare-function heroiclands-hbs-describe "heroiclands-hbs")
+(declare-function heroiclands-hbs-refresh "heroiclands-hbs")
+(declare-function heroiclands-dataview-clear "heroiclands-dataview")
+(declare-function heroiclands-goto-capf "heroiclands-goto")
+(declare-function heroiclands-goto--arm "heroiclands-goto")
+(declare-function heroiclands-goto--close-link "heroiclands-goto")
 
 (defgroup heroiclands nil "HeroicLands multi-repo workflow." :group 'tools)
 
