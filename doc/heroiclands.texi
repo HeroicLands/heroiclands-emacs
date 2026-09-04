@@ -142,6 +142,18 @@ answer from:
 @end multitable
 
 @noindent
+Each of those behaves differently without one, and deliberately so:
+
+@multitable @columnfractions .3 .7
+@item @kbd{C-c h .} @tab Refuses, naming the command that builds an index.
+@item Completion @tab Offers nothing.  A completion function that raised an
+error would be a completion function nobody could type through.
+@item @code{]]} @tab Leaves the link as typed and @emph{says so}, once per
+buffer.  Silence would be the worst outcome available: the author asked for
+a check and would get neither the check nor a reason.
+@item Colouring @tab Continues, minus the verdict.
+@end multitable
+
 So the mode still turns on without an index --- withholding it would take
 away the previews and the colouring, which do not need one, and leave no
 way to see why.  What it does instead is @strong{say so}: the lighter

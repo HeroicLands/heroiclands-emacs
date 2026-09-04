@@ -132,10 +132,17 @@ The **content index** decides which capabilities are *live*:
 | `C-c h .` following a link | `C-c h i`, which builds one |
 | Marking a link broken | The `C-c h` repository commands |
 
+Each behaves differently without one, deliberately: `C-c h .` refuses and names
+the command that builds an index; completion offers nothing (a completion
+function that raised an error would be one nobody could type through); `]]`
+leaves the link as typed and **says so** once per buffer, because silence there
+is the worst outcome — you asked for a check and would get neither the check nor
+a reason; and colouring continues without the verdict.
+
 So the mode still turns on without an index — withholding it would take away
 the previews and the colouring, which don't need one, and leave no way to see
-why. Instead it **says so**: the lighter reads `HL?` rather than `HL`, and
-enabling it in a buffer with no index tells you once where to get one.
+why. It also **says so**: the lighter reads `HL?` rather than `HL`, and enabling
+it in a buffer with no index tells you once where to get one.
 
 `C-c h i` then rebuilds and re-examines every open content buffer, so lighters
 and broken-link marking catch up without reopening anything.

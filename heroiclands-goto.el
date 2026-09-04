@@ -462,6 +462,12 @@ See Info node `(heroiclands)Completion'."
 
 ;;;; --------------------------------------------- when the machinery is live
 
+(defvar-local heroiclands-goto--warned-no-index nil
+  "Whether this buffer has already been told there is no content index.
+
+Once, not once per link: a note being drafted before its index exists would
+otherwise say it on every closing bracket.")
+
 (defvar-local heroiclands-goto--entry nil
   "Marker just after a `[[' the author has typed, or nil.
 
@@ -590,6 +596,19 @@ See Info node `(heroiclands)Normalization'."
     ;; The link is closed now either way — an error below must not leave the
     ;; machinery armed and fire again on the next keystroke.
     (heroiclands-goto--disarm)
+    ;; Silence here would be the worst outcome available: the author typed
+    ;; `]]' expecting the link to be canonicalized and checked, and would get
+    ;; neither with nothing to say why. Said once per buffer rather than
+    ;; raised — a link that cannot be checked is not itself an error, and
+    ;; erroring on every close while drafting would be worse than saying
+    ;; nothing at all.
+    (when (and (ignore-errors (heroiclands-index--root))
+               (null (ignore-errors
+                       (heroiclands-index-files (heroiclands-index--root))))
+               (not heroiclands-goto--warned-no-index))
+      (setq heroiclands-goto--warned-no-index t)
+      (message "No content index — link left as typed, and not checked (%s)"
+               (substitute-command-keys "\\[heroiclands-index-rebuild]")))
     (when-let* ((root (ignore-errors (heroiclands-index--root)))
                 (files (heroiclands-index-files root))
                 (open (save-excursion
