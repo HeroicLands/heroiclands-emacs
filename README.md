@@ -303,37 +303,34 @@ what keeps `C-h f` and the manual joined up.
 
 ## Licence
 
-[MPL-2.0](LICENSE) — the Mozilla Public License, version 2.0. In plain terms:
+[GPL-3.0-or-later](LICENSE). In plain terms:
 
 **You may use it for anything, commercial or not.** Charge for what you make
-with it. Use it at work. Nobody needs permission.
+with it. Use it at work. Nobody needs permission, and no fee is owed. The GPL
+has never restricted commercial use — that is the most common misreading of it.
 
 **You may use it on closed projects.** Author a paid FoundryVTT module — for
 Kethira, or any other setting, free or not — with this package as your editor
-tooling. Your module is yours: it is not a derivative of this code, and nothing
-here reaches it. Using a tool to write something has never made the something a
-derivative of the tool.
+tooling. Your module is yours and stays closed if you want it closed. Using a
+tool to write something has never made the something a derivative of the tool;
+GCC compiles proprietary code, and Emacs edits proprietary files, for the same
+reason.
 
-Even the stronger case is allowed: you may bundle these files *inside* a closed
-product and ship it. MPL calls that a Larger Work, and it stays yours.
+**But this package, and everything derived from it, stays free.** Modify it,
+extend it, fork it — and if you distribute what you made, it carries the same
+licence, with source. An improvement to the package cannot be taken private.
 
-**But improvements to this package stay open.** If you modify one of these files
-and distribute it, that file remains MPL-2.0 and its source has to be available
-to whoever you gave it to. Fix a bug in `heroiclands-goto.el` and ship it, and
-the fix comes back. Add `my-own-thing.el` beside it and that file is yours,
-under any licence you like — the obligation follows the files it came from, not
-the project that contains them.
-
-That is the whole trade, and it is exactly the intent: **use it however you
-like, including to make money on closed work; but if you improve the package
-itself, everyone gets the improvement.**
+That is the whole trade: **use it however you like, including to make money on
+closed work; but the package itself, and every version of it, belongs to
+everyone.**
 
 ### The fine print worth knowing
 
-- The obligation triggers on **distribution**, not on modification. Someone may
-  hack a private copy and never share it. That is true of every copyleft licence
-  short of the AGPL, and the AGPL would cost you the closed-use permission
-  above.
-- MPL-2.0 is **GPL-compatible**, so this code can still be taken into the GPL-3
-  HeroicLands repositories. The reverse does not hold: do not copy GPL-licensed
-  code *into* this repository, as that would encumber the whole of it.
+- The obligation triggers on **distribution**, not on modification. A private
+  copy may be hacked and never shared. Only the AGPL closes that gap, and it
+  would reach into the closed work above, which is not the intent.
+- The only thing this licence forbids that a permissive one would allow is
+  shipping these files **inside** a closed product. That is deliberate: it is
+  the case where an improvement would otherwise disappear.
+- GPL-3 is what Emacs itself and the rest of the HeroicLands repositories use,
+  so code moves between them without a licensing question.
