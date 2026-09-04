@@ -1,0 +1,791 @@
+\input texinfo   @c -*- texinfo -*-
+@c %**start of header
+@setfilename heroiclands.info
+@settitle HeroicLands Emacs
+@documentencoding UTF-8
+@documentlanguage en
+@c %**end of header
+
+@dircategory Emacs
+@direntry
+* HeroicLands: (heroiclands).   The HeroicLands Emacs setup, end to end.
+@end direntry
+
+@titlepage
+@title HeroicLands Emacs
+@subtitle The whole setup: repos, code, content, and the keys that reach them
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top
+@top HeroicLands Emacs
+
+Everything this configuration adds, in one place: working across the
+sixteen repositories, editing TypeScript, and authoring content notes —
+previewing the tables a note declares, querying the content index, and
+writing wikilinks that are correct before the build ever sees them.
+
+Emacs 31.1 (emacs-plus, AOT native-compiled).  The configuration lives in
+@file{~/.config/emacs/}: @file{early-init.el}, @file{init.el}, and
+@file{lisp/}.
+
+Almost everything hangs off the @kbd{C-c h} prefix.  Press @kbd{C-c h}
+and wait half a second; which-key lists what is there.  Every command
+below documents itself in @kbd{C-h f}, and this manual is @kbd{C-c h ?}.
+
+@menu
+* Quick Reference::         Every key, on one screen.
+* The Mode::                Turning it on, and where it turns itself on.
+* Starting Emacs::          The daemon, and how to attach to it.
+* Everyday Emacs::          Files, buffers, search, undo.
+* The Constellation::       Working across sixteen repositories.
+* Compile and Diagnostics:: The authority on whether the code is right.
+* TypeScript::              eglot, and why there is no version skew.
+* Git::                     Magit and Forge.
+* The Content Index::       What it is, and how to rebuild it.
+* Writing Wikilinks::       Completion, normalization, and following.
+* Content Tables::          Previewing @code{dataview} blocks.
+* Querying Content::        Asking questions with jq.
+* Record Format::           Every field a record carries.
+* Handlebars Helpers::      Completion inside a template.
+* Special Characters::      Typing what the content actually contains.
+* Housekeeping::            Formatting, grammars, and the odd rebuild.
+* Troubleshooting::         When something does not answer.
+* Index::
+@end menu
+@end ifnottex
+
+@node Quick Reference
+@chapter Quick Reference
+
+@section The repositories
+
+@multitable @columnfractions .18 .82
+@item @kbd{C-c h h} @tab Jump to any repo.
+@item @kbd{C-c h g} @tab Ripgrep across every repo at once.
+@item @kbd{C-c h f} @tab Find a content note by filename, anywhere.
+@item @kbd{C-c h m} @tab Find a content note by canonical key.
+@item @kbd{C-c h M} @tab Reload the link manifests from disk.
+@item @kbd{C-c h c} @tab Pick an npm script and compile.
+@item @kbd{C-c h b} @tab @code{npm run build:types} — the fast typecheck.
+@item @kbd{C-c h t} @tab @code{npm run test} — vitest.
+@item @kbd{C-c h l} @tab @code{npm run lint}.
+@end multitable
+
+@section Content
+
+@multitable @columnfractions .18 .82
+@item @kbd{C-c h i} @tab Rebuild this project's content index.
+@item @kbd{C-c h I} @tab Run a jq query against it.
+@item @kbd{C-c h .} @tab Follow the wikilink at point.
+@item @kbd{C-c h ,} @tab Jump back.
+@item @kbd{C-c h d} @tab Toggle content-table previews.
+@item @kbd{C-c h D} @tab Re-render those previews.
+@item @kbd{C-c h H} @tab Describe a Handlebars helper.
+@item @kbd{C-c h R} @tab Rescan the helper sources.
+@item @kbd{C-c h ?} @tab This manual.
+@end multitable
+
+@noindent
+And while typing in a note: @code{[[} starts a wikilink and opens
+completion; @code{]]} closes it and rewrites it into canonical form, or
+says why it cannot.
+
+@section The habit worth keeping
+
+Rebuild the index (@kbd{C-c h i}) after adding or renaming notes.
+Everything else reads from it, and nothing rebuilds it for you.
+
+@node The Mode
+@chapter The Mode
+
+@cindex heroiclands-mode
+@cindex minor mode
+@findex heroiclands-mode
+@findex global-heroiclands-mode
+
+The buffer-local half of this package is a minor mode,
+@code{heroiclands-mode}.  It carries the wikilink machinery and the
+completions --- everything that is genuinely about @emph{this buffer}.
+@kbd{C-h m} describes it wherever it is on, and the lighter @samp{HL} in
+the mode line says when that is.
+
+The @kbd{C-c h} prefix is @strong{not} part of it, and stays global on
+purpose: jumping between repositories and grepping across all of them are
+things you do from anywhere, including from a buffer belonging to no
+project at all.
+
+@section It usually turns itself on
+
+@code{global-heroiclands-mode} enables it in any markdown buffer visiting
+a file inside a project that carries @file{package-build.config.yaml}.
+That is the whole test, so a note in a new repository is covered the day
+the repository exists.
+
+@example
+(global-heroiclands-mode 1)
+@end example
+
+@noindent
+With that in your init file there is nothing to mark: open a content note
+and the mode is on.
+
+@section Marking a single file
+
+To turn it on in a file the rule would not catch, use a file-local
+variable.  In the first line, after the major mode:
+
+@example
+<!-- -*- mode: markdown; mode: heroiclands; -*- -->
+@end example
+
+@noindent
+The first @code{mode:} names the major mode; every later one names a
+minor mode to enable.  Or, at the end of the file:
+
+@example
+<!-- Local Variables: -->
+<!-- mode: heroiclands -->
+<!-- End: -->
+@end example
+
+@section Marking a directory
+
+For a whole tree, a @file{.dir-locals.el} beside it:
+
+@example
+((markdown-mode . ((mode . heroiclands))))
+@end example
+
+@section Marking nothing at all
+
+@kbd{M-x heroiclands-mode} toggles it in the current buffer, and
+@kbd{M-x heroiclands-mode} again turns it off.  Turning it off removes
+the completions and the wikilink machinery from that buffer and clears
+any content-table previews, which is the point of it being a mode: a
+buffer where you want none of this can say so.
+
+@node Starting Emacs
+@chapter Starting Emacs
+
+@cindex daemon
+@cindex starting Emacs
+
+Emacs runs as a @strong{daemon} started at login (@command{brew
+services}, @code{emacs-plus@@31}).  Every route below attaches a frame to
+that one session, so buffers, undo history, magit state and the warm
+language server are all shared.
+
+@multitable @columnfractions .22 .78
+@item Login @tab Automatic. @code{brew services list} shows
+@code{emacs-plus@@31 started}.
+@item Dock or Spotlight @tab @strong{Emacs Client} in
+@file{~/Applications} — not @emph{Emacs}, which starts a rival instance.
+@item Terminal @tab @command{e} opens a file in the existing frame;
+@command{ec} a new window; @command{et} a frame in this terminal.
+@item git, @env{EDITOR} @tab Opens a frame in the current terminal.
+Finish with @kbd{C-x #}.
+@end multitable
+
+@kbd{C-x C-c} closes the @emph{frame} and leaves the daemon running.
+@kbd{C-u C-x C-c} (or @command{eq}) actually stops it.
+
+@strong{Do not launch @file{Emacs.app} directly} — it starts a second,
+independent Emacs that shares none of the above.
+
+@section Why a daemon
+
+Startup itself is only about half a second, so this is about @emph{state},
+not speed.  What a cold frame rebuilds every time:
+
+@multitable @columnfractions .5 .5
+@item Link manifests (5,229 keys) @tab 0.06s
+@item Handlebars helper scan @tab 2.06s
+@item TypeScript language server indexing @tab 10–20s
+@end multitable
+
+@node Everyday Emacs
+@chapter Everyday Emacs
+
+@section The 1980s still works
+
+@multitable @columnfractions .28 .72
+@item @kbd{C-x C-f} @tab Find file.
+@item @kbd{C-x C-s} @tab Save.
+@item @kbd{C-x C-c} @tab Quit the frame.
+@item @kbd{C-g} @tab Cancel.
+@item @kbd{C-x b} @tab Switch buffer.
+@item @kbd{C-x k} @tab Kill buffer.
+@item @kbd{C-x o} @tab Other window.
+@item @kbd{C-x 2} / @kbd{C-x 3} @tab Split below / beside.
+@item @kbd{C-x 1} @tab Only this window.
+@item @kbd{C-x 0} @tab Close this window.
+@item @kbd{M-x} @tab Run a command, with live completion.
+@end multitable
+
+@section Search and navigate
+
+@multitable @columnfractions .28 .72
+@item @kbd{C-s} @tab Search in buffer.
+@item @kbd{M-s r} @tab Ripgrep this project.
+@item @kbd{M-g i} @tab Jump to a symbol in this file.
+@item @kbd{M-g g} @tab Go to line.
+@item @kbd{C-.} @tab Act on the thing at point (embark).
+@item @kbd{M-y} @tab Paste history.
+@end multitable
+
+@section Undo
+
+@cindex undo
+@cindex redo
+
+Emacs keeps @strong{one linear sequence} of changes, and undo commands
+are themselves recorded into it.  Redo is therefore emergent, not a
+second stack.
+
+@multitable @columnfractions .34 .66
+@item @kbd{Cmd-Z}, @kbd{C-/}, @kbd{C-_} @tab Undo.
+@item @kbd{Cmd-Shift-Z}, @kbd{C-?} @tab Redo (@code{undo-redo}).
+@item @kbd{C-x u}, @kbd{Cmd-Shift-U} @tab vundo — the history as a
+navigable tree.
+@item @kbd{C-g} then @kbd{C-/} @tab The classic manoeuvre: break the undo
+run, so the next undo goes @emph{forward}.
+@item Select a region, then undo @tab Undoes only changes inside it.
+@end multitable
+
+The payoff is that no state is ever unreachable.  In a two-stack editor,
+undoing five steps and then typing destroys those five redo states
+permanently; here they are still in the sequence, so vundo can walk back
+to them.
+
+@node The Constellation
+@chapter The Constellation
+
+@cindex repositories
+@cindex constellation
+
+A directory is a HeroicLands content project when it carries
+@file{package-build.config.yaml}.  That is the whole test, so a new
+repository joins by existing.
+
+@multitable @columnfractions .18 .82
+@item @kbd{C-c h h} @tab Jump to any repo.
+@item @kbd{C-c h g} @tab Ripgrep across @emph{every} repo at once — the
+one that finds where a thing is really defined.
+@item @kbd{C-c h f} @tab Find a content note by filename, anywhere.
+@item @kbd{C-c h m} @tab Find a content note by canonical key, completing
+over every published address.
+@item @kbd{C-c h M} @tab Reload the link manifests from disk.
+@end multitable
+
+@node Compile and Diagnostics
+@chapter Compile and Diagnostics
+
+@cindex compile
+@cindex diagnostics
+
+Project diagnostics are emitted as @code{file:line:col: severity:
+message} — the GNU format @code{compilation-mode} already parses.  So
+after @kbd{C-c h b}, @kbd{C-c h t} or @kbd{C-c h l}:
+
+@multitable @columnfractions .22 .78
+@item @kbd{M-g M-n} @tab Next error.
+@item @kbd{M-g M-p} @tab Previous error.
+@item @kbd{RET} @tab Jump to it.
+@item @kbd{g} @tab Re-run.
+@end multitable
+
+@strong{The compile buffer is the authority} — it is the same check CI
+runs.  Squiggles from eglot and eslint are the secondary, advisory
+signal.
+
+@node TypeScript
+@chapter TypeScript
+
+@multitable @columnfractions .22 .78
+@item @kbd{C-c l a} @tab Code actions.
+@item @kbd{C-c l r} @tab Rename symbol.
+@item @kbd{C-c l d} @tab Documentation.
+@item @kbd{C-c l i} @tab Find implementation.
+@item @kbd{C-c l x} @tab @code{eslint --fix} this file.
+@item @kbd{M-.} / @kbd{M-,} @tab Jump to definition / back.
+@item @kbd{C-M-i} @tab Complete.
+@end multitable
+
+The server resolves TypeScript from the project's own
+@file{node_modules}, so the editor and @command{tsc} are always the same
+compiler.  The version-skew problem that a bundled TypeScript causes
+cannot arise here.
+
+@node Git
+@chapter Git
+
+@kbd{C-x g} opens magit status.  Then @kbd{s} stage, @kbd{c c} commit,
+@kbd{P p} push, @kbd{b b} branch, @kbd{F p} pull, @kbd{l l} log, and
+@kbd{?} to show every key.  Forge (@kbd{'} in magit) adds GitHub issues
+and pull requests.
+
+@kbd{C-c t} opens a vterm running bash — run @command{claude} there and
+its output paths become clickable.
+
+@node The Content Index
+@chapter The Content Index
+
+@cindex content index
+@cindex index, content
+
+Every content build walks the whole note tree and parses every note's
+frontmatter, then throws the result away.  The content index publishes
+that walk instead, so anything — you, this editor, a CI check, another
+package's build — can ask a question about the content without
+re-deriving it.
+
+It is one JSON object per line, in JSON Lines:
+
+@verbatim
+build/content-index/<package>.jsonl
+@end verbatim
+
+@section Rebuilding it
+
+@kindex C-c h i
+@findex heroiclands-index-rebuild
+
+@kbd{C-c h i} (@code{heroiclands-index-rebuild}) regenerates it and
+reports what it wrote:
+
+@verbatim
+sohl -> build/content-index/sohl.jsonl (1606 notes, 1806 KiB)
+@end verbatim
+
+It runs @command{npx content-build content-index} from the project root.
+The same command works in any terminal.
+
+@section What to expect of it
+
+The index is @strong{derived and disposable}.  It lives under
+@file{build/}, is gitignored, and nothing may be authored against it.
+Rebuilding costs a frontmatter parse rather than a build — under a second
+over sixteen hundred notes — which is why it is a command of its own and
+why it need never be committed.
+
+It is also @strong{byte-stable}: rebuilding over an unchanged tree
+produces an identical file.  A rebuild is never noise.
+
+@strong{Nothing rebuilds it automatically.}  A note added since the last
+rebuild is invisible to completion, to link following, and to
+normalization, all of which read the index rather than the tree.  If
+something you know exists cannot be found, rebuild first.
+
+@node Writing Wikilinks
+@chapter Writing Wikilinks
+
+@cindex wikilinks
+@cindex links, wiki
+
+A wikilink names a note by its @emph{address} — @code{being-aurochs},
+which is its type and shortcode — and optionally displays something
+friendlier after a @code{|}.  The address is the half that has to be
+exactly right, and the half nobody can remember.
+
+@menu
+* Completion::          Three modes, chosen by what you type.
+* Normalization::       What typing @code{]]} does.
+* Following a Link::    Jumping to the note, or to a section.
+@end menu
+
+@node Completion
+@section Completion
+
+@findex heroiclands-goto-capf
+
+Typing @code{[[} opens completion.  What it offers depends on what you
+type next.
+
+@table @asis
+@item After a @code{#}
+The anchors that note declares — exactly those, since the index holds its
+whole set.
+
+@item A type and a separator
+@code{weapongear-}, @code{being/}, or the package-qualified
+@code{sohl-doc-} reads as the start of an address, and the addresses
+under it are offered.
+
+@item Anything else
+Treated as a @strong{name}.  This is the mode you want most of the time:
+you know a note is called ``Bactrian Camel'' and have no idea its
+shortcode is @code{bctrncml}.
+@end table
+
+Each candidate shows the address and the readable name together:
+
+@verbatim
+weapongear-cbw100 — Composite Bow 100
+being-bctrncml — Bactrian Camel
+armorgear-k34hlm — Kûrbúl ¾-Helm (Kurbul 3/4-Helm)
+Killer Whale — being-orca  [being -> Orca]
+@end verbatim
+
+The name is part of what gets matched, not a decoration beside it, so
+typing @samp{bactrian} finds the note.  Where a name is written in the
+setting's orthography, its typeable form is shown in parentheses —
+@samp{kurbul} matches.  Aliases get candidates of their own, naming the
+note they lead to.
+
+Only the address is ever inserted.
+
+@node Normalization
+@section Normalization
+
+Typing @code{]]} closes the link and rewrites it into canonical form:
+
+@verbatim
+[[Aurochs]]                -> [[being-aurochs|Aurochs]]
+[[aurochs]]                -> [[being-aurochs|Aurochs]]
+[[Kurbul 3/4-Helm]]        -> [[armorgear-k34hlm|Kûrbúl ¾-Helm]]
+[[Killer Whale]]           -> [[being-orca|Killer Whale]]
+[[being-aurochs#dossier]]  -> [[being-aurochs#dossier|Aurochs]]
+@end verbatim
+
+You get the address you must write, with the name you actually want
+displayed.
+
+@strong{An alias keeps your wording.}  @code{[[Killer Whale]]} becomes
+@code{|Killer Whale}, not @code{|Orca}.  If you reached for a sobriquet
+you meant that sobriquet; normalization fixes the half that has to be an
+address and leaves your prose alone.  A link that already states its own
+display half is left alone entirely.
+
+@subsection When it cannot
+
+Anything that is not exactly one note is an error, raised where you typed
+it rather than left to fail in a build:
+
+@table @asis
+@item No such note
+@code{[[being-nosuchthing]]} — @emph{No note named or addressed
+`being-nosuchthing'}
+
+@item Ambiguous
+@code{[[Alchemy]]} — @emph{`Alchemy' names 2 notes (doc-alchemy,
+mysticalability-alch) — say which}
+
+Two notes really are called Alchemy.  Pick one from completion, or type
+its address.
+
+@item Unknown anchor
+@code{[[being-aurochs#nope]]} — @emph{declares no anchor `nope' (it has:
+appearance, dossier)}
+
+The index knows the note's whole anchor set, so this is a fact rather
+than a failed search.
+@end table
+
+@subsection Only while typing
+
+@vindex heroiclands-goto-canonicalize-on-close
+
+Completion and normalization both apply only to a link you are
+@emph{entering}.  They arm when you type @code{[[} and disarm when the
+link closes.  Going back to an existing link and editing it wakes
+neither, so a link you settled stays settled and a deliberately odd one
+is never second-guessed.
+
+Set @code{heroiclands-goto-canonicalize-on-close} to @code{nil} to turn
+the rewriting off entirely.
+
+@node Following a Link
+@section Following a Link
+
+@kindex C-c h .
+@findex heroiclands-goto-follow
+
+@kbd{C-c h .} on a wikilink opens the note it names.  If the link names
+an anchor, it lands on that heading's line rather than at the top of the
+file.
+
+@kbd{C-c h ,} comes back.  It uses the same marker stack as @kbd{M-.} and
+@kbd{M-,}, so the two compose.
+
+A link naming an unknown note, or an anchor the note does not declare,
+says so and lists the anchors that do exist.
+
+@node Content Tables
+@chapter Content Tables
+
+@cindex dataview
+@cindex tables, content
+
+A content note declares the tables it wants with a fenced
+@code{dataview} query, and the build fills in the rows.  Obsidian used to
+render those live while authoring; this does the same.
+
+@kindex C-c h d
+@findex heroiclands-dataview-mode
+
+@kbd{C-c h d} toggles previews in the current note; @kbd{C-c h D}
+re-renders them.
+
+Each table appears as an @strong{overlay} below its block.  The buffer is
+never modified, so a preview cannot be saved into the note by accident.
+The buffer's current text is sent to the renderer, so you can edit a
+query and re-render without saving, and a query the expander refuses
+shows its error in place.
+
+@vindex heroiclands-dataview-max-rows
+
+It renders through the build's own expander, so a preview cannot disagree
+with what actually ships.  Previews are truncated at
+@code{heroiclands-dataview-max-rows} (40); set it to @code{nil} for every
+row.
+
+@node Querying Content
+@chapter Querying Content
+
+@kindex C-c h I
+@findex heroiclands-index-query
+
+@kbd{C-c h I} runs a jq filter against the index and shows the results in
+a buffer.  Each record is a note's own frontmatter, so a query reads
+exactly what the note writes.
+
+@section Recipes
+
+Beings in a category:
+
+@verbatim
+select(.type == "being" and .sohl.kbcat == "animal") | .shortcode
+@end verbatim
+
+Notes missing something they should have:
+
+@verbatim
+select(.type == "being" and (.sohl.kbcat | not)) | .file.path
+@end verbatim
+
+What a stale query would have matched — the check that would have caught
+eight dead Bestiary tables:
+
+@verbatim
+select(.type == "creature") | .file.path
+@end verbatim
+
+Every anchor a note declares, with its line:
+
+@verbatim
+select(.address.slug == "doc-crafting")
+  | .anchors[] | "\(.line)  \(.slug)"
+@end verbatim
+
+From a terminal, the same thing:
+
+@verbatim
+jq -r 'select(.type == "being") | .name.full' \
+  build/content-index/sohl.jsonl
+@end verbatim
+
+@node Record Format
+@chapter Record Format
+
+Each line is a note's whole frontmatter, unflattened — you address
+@code{sohl.body.weight.base} because that is what the note says — plus
+these derived fields.  A note that tries to author one of them is a build
+error rather than a silent overwrite.
+
+@table @code
+@item package
+The package the tree compiles as.
+
+@item file
+Where the note sits: @code{path}, @code{folder}, @code{name}.  The path
+is relative to the content root, never absolute.
+
+@item address
+@code{slug} is what goes inside @code{[[@dots{}]]} within the package
+(@code{being-aurochs}); @code{canonical} is the package-qualified key
+(@code{sohl-being-aurochs}).  Both @code{null} for a note with no type or
+shortcode, which has no address at all.
+
+@item anchors
+Every @code{@{#slug@}} heading the body declares, each with its
+@code{name}, @code{level}, @code{line} in the file, and the
+@code{slug#anchor} @code{link} that reaches it.
+
+@item nameAscii
+@code{name.full} reduced to printable 7-bit ASCII.  Transliterated, not
+stripped: @code{Kûrbúl ¾-Helm} becomes @code{Kurbul 3/4-Helm},
+@code{Ærling} becomes @code{AErling}, @code{Þorn} becomes @code{Thorn}.
+
+@item aliasesAscii
+The same for @code{name.aliases}, in the authored order.  An empty array
+when a note has none — never @code{null}.
+@end table
+
+@node Handlebars Helpers
+@chapter Handlebars Helpers
+
+@cindex handlebars
+@cindex templates
+
+Inside a @file{.hbs} template, typing @code{@{@{} completes across 47
+helpers, annotated with their source and with real documentation pulled
+from the definitions:
+
+@itemize
+@item 15 @strong{sohl}, from @file{src/utils/handlebars-helpers.ts} and
+@file{src/sohl.ts}
+@item 26 @strong{foundry}, from Foundry's @code{registerHelper} block,
+with @code{[DEPRECATED]} flagged
+@item 6 @strong{builtin} — Handlebars' own keywords
+@end itemize
+
+@code{@{@{#} and @code{@{@{/} put the block helpers (@code{each},
+@code{if}, @code{unless}, @code{with}) first.
+
+@multitable @columnfractions .18 .82
+@item @kbd{C-c h H} @tab Describe a helper.
+@item @kbd{C-c h R} @tab Rescan the sources and rebuild the table.
+@end multitable
+
+Names are @strong{read from the source}, never restated — add a helper to
+@file{src/}, press @kbd{C-c h R}, and it appears.  Foundry's module lives
+on an external volume; if it is unmounted the cached Foundry entries are
+kept.
+
+@node Special Characters
+@chapter Special Characters
+
+@cindex special characters
+@cindex accents
+@cindex em dash
+
+@file{assets/content} holds 5,916 non-ASCII characters, 4,498 of them em
+dashes, so typing them has to be easy.
+
+@section macOS modifier keys
+
+@multitable @columnfractions .28 .72
+@item @strong{Left} Option @tab @code{Meta} — @kbd{M-x}, @kbd{M-:},
+@kbd{M-w}.
+@item @strong{Right} Option @tab Itself: the macOS character layer.
+@item Cmd @tab @code{Super} — @kbd{s-z} undo, @kbd{s-=} bigger font.
+@item @key{ESC} @tab A sticky Meta: @key{ESC} then @kbd{x} is @kbd{M-x}.
+Always works.
+@end multitable
+
+Right Option stays a normal Option @strong{deliberately}: with both
+Options bound to Meta, none of those 5,916 characters could be typed.
+
+@section Bindings that work on any keyboard
+
+@multitable @columnfractions .2 .3 .2 .3
+@item @kbd{C-c u -} @tab — em dash @tab @kbd{C-c u .} @tab … ellipsis
+@item @kbd{C-c u n} @tab – en dash @tab @kbd{C-c u x} @tab × multiply
+@item @kbd{C-c u '} @tab ’ right quote @tab @kbd{C-c u m} @tab − minus
+@item @kbd{C-c u "} @tab ” right dquote @tab @kbd{C-c u l} @tab £ pound
+@item @kbd{C-c u d} @tab ° degree @tab @kbd{C-c u >} @tab → arrow
+@item @kbd{C-c u s} @tab § section @tab @tab
+@end multitable
+
+@kbd{C-c u @key{RET}} inserts anything else by name or hex — @kbd{2014
+@key{RET}}, or @kbd{EM DASH @key{RET}}.  @kbd{C-x 8 @key{RET}} is the
+same command.
+
+@section Accented letters
+
+The corner key labelled @code{ctrl/opt} on the MX Keys S @emph{is} right
+Option, so the standard dead-key sequences work for most accents.
+
+@multitable @columnfractions .2 .45 .35
+@headitem Want @tab Right-Option sequence @tab In content
+@item á Á é í ú ý @tab @kbd{Opt-e} then the letter @tab 177
+@item û â î @tab @kbd{Opt-i} then the letter @tab 78
+@item ü ë @tab @kbd{Opt-u} then the letter @tab 20
+@item è @tab @kbd{Opt-`} then the letter @tab 10
+@item ç @tab @kbd{Opt-c} @tab 2
+@end multitable
+
+@strong{Macron is the exception} — macOS has no Option sequence for it at
+all, and this content uses 23.  So it is bound directly:
+
+@multitable @columnfractions .2 .3 .2 .3
+@item @kbd{C-c u = a} @tab ā @tab @kbd{C-c u = o} @tab ō
+@item @kbd{C-c u = i} @tab ī @tab @kbd{C-c u = u} @tab ū
+@item @kbd{C-c u = A} @tab Ā @tab @kbd{C-c u = e} @tab ē
+@end multitable
+
+Also @kbd{C-c u A} gives Æ and @kbd{C-c u a} gives æ.  Anything else:
+@kbd{C-c u @key{RET}}.
+
+@node Housekeeping
+@chapter Housekeeping
+
+@section Format on save
+
+Prettier runs on save — asynchronously, so it never blocks — for
+@file{ts}, @file{tsx}, @file{js}, @file{mjs}, @file{json}, @file{css},
+@file{markdown}, @file{yaml}, @file{hbs} and @file{html}, using the
+project's own Prettier and configuration.
+
+@section Occasional rebuilds
+
+@multitable @columnfractions .45 .55
+@item @kbd{C-c h i} @tab Content index, after adding notes.
+@item @kbd{C-c h R} @tab Handlebars helper table, after adding a helper.
+@item @kbd{C-c h M} @tab Link manifests, after they change on disk.
+@item @code{M-x my/install-grammars} @tab Reinstall tree-sitter grammars.
+@end multitable
+
+Font and size knobs are the two @code{defvar}s at the top of
+@file{init.el}.
+
+@section Rebuilding this manual
+
+@verbatim
+makeinfo -o ~/.config/emacs/info/heroiclands.info \
+  ~/.config/emacs/doc/heroiclands.texi
+@end verbatim
+
+@node Troubleshooting
+@chapter Troubleshooting
+
+@table @asis
+@item A note I just added is not offered
+Rebuild the index: @kbd{C-c h i}.  Nothing rebuilds it for you.
+
+@item Completion does not open in a link
+It only arms when you @emph{type} @code{[[}.  Editing an existing link
+deliberately does not wake it.  Retype the link, or use @kbd{C-c h .} to
+navigate instead.
+
+@item ``No content index built''
+Run @kbd{C-c h i} once in this project.
+
+@item Following a link says the note is unknown
+Either the index is stale (@kbd{C-c h i}) or the address really is wrong.
+Completion tells you which, by whether it can offer it.
+
+@item An anchor I added is not found
+Anchors come from the index too.  Rebuild.
+
+@item Everything is silent in this buffer
+The content machinery only runs in a markdown buffer inside a project
+carrying @file{package-build.config.yaml}.
+
+@item A helper I just wrote does not complete
+@kbd{C-c h R} rescans the sources.
+
+@item Emacs feels cold — no manifests, no language server
+You are probably in a rival instance.  Quit it and attach to the daemon
+with @strong{Emacs Client}.  @xref{Starting Emacs}.
+@end table
+
+@node Index
+@unnumbered Index
+
+@printindex cp
+
+@bye
