@@ -110,7 +110,8 @@ than located and re-read per link.")
 
 Resolving them walks the constellation and stats directories, which at
 0.3 ms a call is nothing until font lock asks per link on every keystroke.
-`unset' distinguishes "not yet looked" from "looked, found none".")
+The symbol `unset' distinguishes not-yet-looked from looked-and-found-none,
+which nil alone cannot.")
 
 (defun heroiclands-highlight--files ()
   "The index files for this buffer, resolved at most once per buffer."

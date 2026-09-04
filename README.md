@@ -35,6 +35,16 @@ than a broken link that surfaces in a build days later.
 
 `C-c h .` follows a link, landing on the anchor's line. `C-c h ,` comes back.
 
+**Wikilinks you can see.** Each part of `[[address#anchor|display]]` is
+coloured by what it is — the address strongest, since it has to be exactly
+right and nobody can read it; the display half kept close to body text, since
+it *is* the prose. A link naming a note the index does not hold, or an anchor
+the note does not declare, is drawn broken with a wavy underline, so a dead
+link shows while you write it rather than at build time.
+
+A target in a package whose index isn't loaded is never marked broken — not
+held is not the same as not there.
+
 **Content tables, rendered live.** `C-c h d` previews each fenced `dataview`
 block as an overlay beneath it, rendered through the *build's own expander* — so
 a preview cannot disagree with what ships. The buffer is never modified.

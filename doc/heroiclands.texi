@@ -92,7 +92,8 @@ below documents itself in @kbd{C-h f}, and this manual is @kbd{C-c h ?}.
 @noindent
 And while typing in a note: @code{[[} starts a wikilink and opens
 completion; @code{]]} closes it and rewrites it into canonical form, or
-says why it cannot.
+says why it cannot.  A link the index says is dead is coloured as broken
+while you write it (@pxref{Seeing Them}).
 
 @section The habit worth keeping
 
@@ -466,6 +467,7 @@ exactly right, and the half nobody can remember.
 * Completion::          Three modes, chosen by what you type.
 * Normalization::       What typing @code{]]} does.
 * Following a Link::    Jumping to the note, or to a section.
+* Seeing Them::         What the colours mean.
 @end menu
 
 @node Completion
@@ -584,6 +586,65 @@ file.
 
 A link naming an unknown note, or an anchor the note does not declare,
 says so and lists the anchors that do exist.
+
+@node Seeing Them
+@section Seeing Them
+
+@cindex highlighting
+@cindex colours
+@cindex broken links
+
+In plain markdown every part of @code{[[address#anchor|display]]} looks
+like prose.  They are coloured by part, because they are not equally
+interesting:
+
+@multitable @columnfractions .3 .7
+@item @strong{address} @tab The part that has to be exactly right, and the
+part nobody can read.  Given the strongest colour.
+@item @strong{#anchor} @tab The section within that note, in a lighter
+shade of the same.
+@item @strong{|display} @tab The words a reader actually sees.  Kept close
+to body text on purpose --- it @emph{is} the prose, and colouring it like a
+link would make the sentence harder to read rather than easier.
+@item @strong{brackets} @tab Structure, so they recede.
+@end multitable
+
+@subsection A colour that means something
+
+@vindex heroiclands-highlight-check-targets
+
+A link naming a note the index does not hold, or an anchor the note does
+not declare, is drawn as @strong{broken} --- a warning colour with a wavy
+underline.  So a dead link is visible while it is being written, rather
+than at build time.
+
+That is the point of highlighting here rather than adding a generic
+wikilink pattern: the colour carries a fact, not a category.  Set
+@code{heroiclands-highlight-check-targets} to @code{nil} for plain
+colouring with no verdict.
+
+@subsection Not held is not the same as not there
+
+@vindex heroiclands-index-projects
+
+A wikilink may name a note in another package by its canonical
+@code{<package>-<type>-<shortcode>} address --- @code{sohl-being-aurochs}
+cited from a @code{thalorna} note.  Resolving one means holding that
+package's index too, so @code{heroiclands-index-projects} says which to
+read; it defaults to every project under @code{heroiclands-root} that has
+an index built.
+
+A target whose package is @emph{not} loaded is never marked broken.  Only
+a bare local slug, or a canonical address in a package actually held, can
+be reported dead.  A colour that guesses is a colour nobody trusts, and
+the first false alarm spends that trust.
+
+@subsection Without an index
+
+The colouring is a pure reading of the link's own structure, so it works
+with no index at all --- what stops is the verdict.  Nothing is reported
+broken, the lighter reads @samp{HL?}, and
+@kbd{C-c h i} puts both back.  @xref{The Mode}.
 
 @node Content Tables
 @chapter Content Tables
