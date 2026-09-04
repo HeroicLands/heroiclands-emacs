@@ -350,10 +350,57 @@ to them.
 @cindex repositories
 @cindex constellation
 
-A directory is a HeroicLands content project when it carries a
-package-build configuration --- @file{package-build.config.yaml},
-@file{.yml} or @file{.mjs}, any one of them.  That is the whole test, so a
-new repository joins by existing.
+A directory is a HeroicLands content project when it is a git checkout
+carrying a package-build configuration --- @file{package-build.config.yaml},
+@file{.yml} or @file{.mjs}, any one of them.
+
+@vindex heroiclands-project-roots
+@vindex heroiclands-project-search-depth
+@findex heroiclands-refresh-projects
+
+@code{heroiclands-project-roots} says where to look.  Each entry is
+searched like this:
+
+@itemize
+@item a directory that is @strong{itself} a project is taken as one, and is
+@strong{not searched further};
+@item otherwise its subdirectories are searched, to
+@code{heroiclands-project-search-depth} (3).
+@end itemize
+
+Stopping at a project is the important half.  A checkout inside a
+checkout --- a worktree under @file{.claude/worktrees/}, a vendored
+source --- is the @emph{same} project, not another one, and descending
+would find the same package twice.
+
+So a root may be a directory holding repositories, or a project itself, or
+any mixture of the two:
+
+@example
+(setq heroiclands-project-roots
+      '("~/work/heroiclands"      ; a directory of repositories
+        "~/src/sohl-thalorna"))   ; one particular project
+@end example
+
+@strong{Left unset it searches nowhere.}  Nothing about a filesystem is
+guessed --- not a conventional directory, and not the siblings of the
+current checkout --- because either would be this package asserting where
+your repositories ought to live.
+
+What that costs is bounded.  The project a buffer belongs to is found by
+@code{project}, not by this list, so the local index still loads and local
+links still resolve and are still checked.  What needs the list is
+everything @emph{across} projects: resolving a canonical
+@code{<package>-<type>-<shortcode>} address into another package, and the
+@kbd{C-c h} commands that span repositories.
+
+A linked worktree counts as a checkout: there @file{.git} is a file rather
+than a directory, and someone editing in one should not find the package
+inert.
+
+@kbd{M-x heroiclands-refresh-projects} searches again after a repository is
+cloned or removed.  The result is cached in between, since it walks the
+filesystem.
 
 @multitable @columnfractions .18 .82
 @item @kbd{C-c h h} @tab Jump to any repo.

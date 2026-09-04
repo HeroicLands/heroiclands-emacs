@@ -53,9 +53,40 @@
 
 (defgroup heroiclands nil "HeroicLands multi-repo workflow." :group 'tools)
 
-(defcustom heroiclands-root (expand-file-name "~/dev/github")
-  "Directory holding the repository constellation."
-  :type 'directory :group 'heroiclands)
+(define-obsolete-variable-alias 'heroiclands-root
+  'heroiclands-project-roots "0.2.0"
+  "A single hard-coded directory was one person's layout, not a convention.")
+
+(defcustom heroiclands-project-roots nil
+  "Directories to search for HeroicLands content projects.
+
+Each entry is searched as described in `heroiclands-projects':  a
+directory that is itself a project is taken as one, and otherwise its
+subdirectories are searched, to `heroiclands-project-search-depth'.
+
+Unset --- the default --- means **search nowhere**.  Nothing about a
+filesystem is guessed: not a conventional directory, and not the siblings
+of the current checkout, since either would be this package asserting where
+your repositories ought to live.
+
+What that costs is bounded, and worth knowing precisely.  The project a
+buffer belongs to is found by `project', not by this list, so the local
+index still loads and local links still resolve.  What needs the list is
+everything *across* projects: resolving a canonical
+`<package>-<type>-<shortcode>' address into another package, and the
+constellation commands.  Set it once to have those."
+  :type '(repeat directory) :group 'heroiclands)
+
+(defcustom heroiclands-project-search-depth 3
+  "How far below a root in `heroiclands-project-roots' to search.
+
+A bound is needed because a root may be large: searching stops descending
+as soon as it finds a project, but a directory holding no projects at all
+would otherwise be walked to the bottom.  Three levels covers a root
+holding repositories, or holding groups of them, without ever walking a
+whole home directory."
+  :type 'integer :group 'heroiclands)
+
 
 (defcustom heroiclands-markers
   '("package-build.config.yaml"
@@ -76,24 +107,129 @@ this package's to guess at."
 
 ;;;; ------------------------------------------------------------ discovery
 
+(defun heroiclands--search-base ()
+  "One directory to search across, for the commands that need a single one.
+
+Ripgrep and find take a starting point rather than a set.  With one root
+that is the root; with several it is their deepest common ancestor, which
+is the smallest tree containing all of them."
+  (let ((roots heroiclands-project-roots))
+    (cond
+     ((null roots) (or (heroiclands--project-root) default-directory))
+     ((null (cdr roots)) (expand-file-name (car roots)))
+     (t (let ((common (expand-file-name (car roots))))
+          (dolist (r (cdr roots))
+            (setq common (heroiclands--common-ancestor
+                          common (expand-file-name r))))
+          common)))))
+
+(defun heroiclands--common-ancestor (a b)
+  "The deepest directory containing both A and B."
+  (let ((as (split-string (directory-file-name a) "/"))
+        (bs (split-string (directory-file-name b) "/"))
+        (out nil))
+    (while (and as bs (equal (car as) (car bs)))
+      (push (car as) out)
+      (setq as (cdr as) bs (cdr bs)))
+    (file-name-as-directory (mapconcat #'identity (nreverse out) "/"))))
+
+(defun heroiclands--repo-p (dir)
+  "Whether DIR is the root of a git checkout.
+
+A linked worktree keeps `.git' as a *file* rather than a directory, and
+counts: it is a checkout of the same content, and someone editing in one
+should not find the package inert."
+  (file-exists-p (expand-file-name ".git" dir)))
+
+(defun heroiclands--search-root (root depth)
+  "Content projects at or under ROOT, searching at most DEPTH levels down.
+
+ROOT itself is tested first, and a directory that is a project is returned
+without its subdirectories being searched: a project may well contain
+checkouts of its own — worktrees under `.claude/worktrees', vendored
+sources — and those are the same project, not more of them."
+  (cond
+   ((not (file-directory-p root)) nil)
+   ((heroiclands-project-p root) (list (file-name-as-directory root)))
+   ((<= depth 0) nil)
+   (t
+    (let (found)
+      (dolist (d (ignore-errors (directory-files root t "\\`[^.]" t)))
+        (when (file-directory-p d)
+          (setq found (append found (heroiclands--search-root d (1- depth))))))
+      found))))
+
 (defun heroiclands--git-repos ()
-  "All git repositories directly under `heroiclands-root'."
+  "Every git checkout among the searched roots.
+
+Kept for the commands that want checkouts rather than content projects;
+`heroiclands-projects' is the narrower list."
   (let (repos)
-    (dolist (d (directory-files heroiclands-root t "\\`[^.]" t))
-      (when (and (file-directory-p d)
-                 (file-directory-p (expand-file-name ".git" d)))
-        (push d repos)))
-    (nreverse repos)))
+    (dolist (root heroiclands-project-roots)
+      (dolist (d (ignore-errors
+                   (directory-files (expand-file-name root) t "\\`[^.]" t)))
+        (when (and (file-directory-p d) (heroiclands--repo-p d))
+          (push (file-name-as-directory d) repos))))
+    (nreverse (delete-dups repos))))
 
 (defun heroiclands-project-p (dir)
-  "Return non-nil when DIR is a HeroicLands content project."
-  (seq-some (lambda (marker)
-              (file-exists-p (expand-file-name marker dir)))
-            heroiclands-markers))
+  "Return non-nil when DIR is a HeroicLands content project.
 
-(defun heroiclands-projects ()
-  "Repos in the constellation that carry the content toolchain."
-  (seq-filter #'heroiclands-project-p (heroiclands--git-repos)))
+That is: a git checkout carrying one of `heroiclands-markers'.  Both halves
+are required — a bare directory of notes is not a project, and a checkout
+of something else is not one either."
+  (and (heroiclands--repo-p dir)
+       (seq-some (lambda (marker)
+                   (file-exists-p (expand-file-name marker dir)))
+                 heroiclands-markers)))
+
+(defvar heroiclands--projects-cache nil
+  "Cached result of `heroiclands-projects', with the roots it was found for.
+
+Discovery walks the filesystem, and the answer changes only when someone
+clones or removes a repository.  \\[heroiclands-refresh-projects] discards it.")
+
+(defun heroiclands-projects (&optional refresh)
+  "Every HeroicLands content project among the searched roots.
+
+Each root in `heroiclands-project-roots' — or, when that is nil, the parent
+of the current buffer's project — is searched as follows.  A root that is
+itself a project is taken as one.  Otherwise its subdirectories are
+searched, to `heroiclands-project-search-depth'.  **Searching stops at a
+project**: its own subdirectories are not examined, because a checkout
+inside a checkout is the same project rather than another one.
+
+The result is cached; REFRESH, or \\[heroiclands-refresh-projects], recomputes it."
+  (let ((roots heroiclands-project-roots))
+    (when (or refresh (not (equal roots (car heroiclands--projects-cache))))
+      (setq heroiclands--projects-cache
+            (cons roots
+                  (delete-dups
+                   (mapcan (lambda (root)
+                             (heroiclands--search-root
+                              (expand-file-name root)
+                              heroiclands-project-search-depth))
+                           roots)))))
+    (cdr heroiclands--projects-cache)))
+
+;;;###autoload
+(defun heroiclands-refresh-projects ()
+  "Search the roots again, after cloning or removing a repository."
+  (interactive)
+  (let ((found (heroiclands-projects t)))
+    (cond
+     ((null heroiclands-project-roots)
+      (message "No search roots — set `heroiclands-project-roots' to resolve %s"
+               "links into other packages"))
+     ((null found)
+      (message "No content projects under %s"
+               (mapconcat #'identity heroiclands-project-roots ", ")))
+     (t
+      (message "%d content project%s: %s"
+               (length found) (if (= 1 (length found)) "" "s")
+               (mapconcat (lambda (p)
+                            (file-name-nondirectory (directory-file-name p)))
+                          found ", "))))))
 
 (defun heroiclands-active-repos (&optional months)
   "Repos with a commit in the last MONTHS (default 4)."
@@ -127,8 +263,8 @@ whole constellation, results in one buffer."
   (interactive "sSearch all repos: ")
   (require 'consult nil t)
   (if (fboundp 'consult-ripgrep)
-      (consult-ripgrep heroiclands-root term)
-    (let ((default-directory heroiclands-root))
+      (consult-ripgrep (heroiclands--search-base) term)
+    (let ((default-directory (heroiclands--search-base)))
       (compilation-start
        (format "rg --line-number --with-filename --color=never --glob '!node_modules' --glob '!build' %s ."
                (shell-quote-argument term))
@@ -140,7 +276,7 @@ whole constellation, results in one buffer."
   (interactive)
   (require 'consult nil t)
   (if (fboundp 'consult-find)
-      (consult-find heroiclands-root)
+      (consult-find (heroiclands--search-base))
     (call-interactively #'find-name-dired)))
 
 ;;;; -------------------------------------------------------------- compile
@@ -272,12 +408,15 @@ wins -- an entry whose key prefix matches the manifest's own `package'."
          (pick (completing-read "Content note: " disp nil t))
          (key  (car (split-string pick " — ")))
          (row  (assoc key rows)))
-    (if-let* ((hit (car (directory-files-recursively
-                         heroiclands-root
-                         (concat "\\`" (regexp-quote
-                                        (car (last (split-string
-                                                    (string-trim-right (nth 2 row) "/") "/"))))
-                                 "\\.md\\'")))))
+    (if-let* ((needle (concat "\\`"
+                              (regexp-quote
+                               (car (last (split-string
+                                           (string-trim-right (nth 2 row) "/") "/"))))
+                              "\\.md\\'"))
+              (hit (seq-some (lambda (p)
+                               (car (ignore-errors
+                                      (directory-files-recursively p needle))))
+                             (heroiclands-projects))))
         (find-file hit)
       (message "Manifest key %s → path %s (no local .md found)" key (nth 2 row)))))
 

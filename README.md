@@ -89,8 +89,13 @@ line is what actually turns the mode on:
 (require 'heroiclands)            ; the constellation, and the C-c h map
 (require 'heroiclands-index)      ; the content index
 (require 'heroiclands-goto)       ; wikilink completion and normalization
+(require 'heroiclands-highlight)  ; colouring, and marking dead links
 (require 'heroiclands-dataview)   ; content-table previews
 (require 'heroiclands-hbs)        ; Handlebars helper completion
+
+;; Where your content repositories live. Either a directory holding them,
+;; or the projects themselves, or a mixture — see below.
+(setq heroiclands-project-roots '("~/dev/github"))
 
 (global-heroiclands-mode 1)       ; turn it on where it applies
 ```
@@ -288,13 +293,65 @@ Rebuild the index (`C-c h i`) after adding or renaming notes. Completion, link
 following, and normalization all read the index rather than the tree, and
 nothing rebuilds it for you.
 
+### Finding your projects
+
+`heroiclands-project-roots` is the list of places to look. Each entry is
+searched like this:
+
+- if the directory is **itself a project** — a git checkout carrying a
+  `package-build.config.*` — it is taken as one, and **not searched further**;
+- otherwise its subdirectories are searched, down to
+  `heroiclands-project-search-depth` (3).
+
+Searching stops at a project deliberately: a checkout inside a checkout — a
+worktree under `.claude/worktrees/`, a vendored source — is the *same* project,
+not another one.
+
+So a root may be a directory holding your repositories:
+
+```elisp
+(setq heroiclands-project-roots '("~/dev/github"))
+```
+
+or the projects themselves, or any mixture:
+
+```elisp
+(setq heroiclands-project-roots
+      '("~/work/heroiclands"          ; a directory of repositories
+        "~/src/sohl-thalorna"))       ; one specific project
+```
+
+**Left unset, it searches nowhere.** Nothing about your filesystem is
+guessed — not a conventional directory, not the siblings of the current
+checkout — because either would be this package asserting where your
+repositories ought to live.
+
+What that costs is bounded, and worth knowing precisely:
+
+| With no roots set | |
+| --- | --- |
+| The mode | still turns on |
+| The local project's index | still loads — `project.el` finds the buffer's own checkout |
+| `[[being-aurochs]]` | resolves; a dead local link is still flagged |
+| `[[thalorna-being-x]]` | not resolvable, and correctly *not* flagged |
+| `C-c h h` / `C-c h g` across repos | nothing to search |
+
+So setting it is what buys you links **across** packages, and the
+constellation commands. Local editing works without it.
+
+A linked worktree counts as a checkout (`.git` is a file there rather than a
+directory). Someone editing in one should not find the package inert.
+
+`M-x heroiclands-refresh-projects` searches again after you clone or remove a
+repository; the result is cached in between, since it walks the filesystem.
+
 ### Links to other packages
 
 A wikilink may name a note in another package by its canonical
 `<package>-<type>-<shortcode>` address — `sohl-being-aurochs` cited from a
 `thalorna` note. Resolving one means holding that package's index too, so
 `heroiclands-index-projects` says which to read; it defaults to every project
-under `heroiclands-root` that has an index built.
+that `heroiclands-project-roots` finds and that has an index built.
 
 A target belonging to a package that **isn't** loaded is never marked broken.
 Not held is not the same as not there, and a colour that guesses is a colour
@@ -305,10 +362,12 @@ can be reported dead.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `heroiclands-root` | `~/dev/github` | Where the repositories live |
+
 | `heroiclands-markers` | the three `package-build.config.*` names | What marks a project |
 | `heroiclands-index-relative-dir` | `build/content-index` | Where the index is written |
 | `heroiclands-goto-canonicalize-on-close` | `t` | Rewrite a link when `]]` is typed |
+| `heroiclands-project-roots` | `nil` | Where to look for projects; nil = siblings of the current one |
+| `heroiclands-project-search-depth` | `3` | How far below a root to search |
 | `heroiclands-index-projects` | `all` | Whose indexes to resolve links against |
 | `heroiclands-highlight-check-targets` | `t` | Mark links the index says are dead |
 | `heroiclands-dataview-max-rows` | `40` | Preview truncation; `nil` for all |
