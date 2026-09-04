@@ -92,7 +92,8 @@ below documents itself in @kbd{C-h f}, and this manual is @kbd{C-c h ?}.
 @noindent
 And while typing in a note: @code{[[} starts a wikilink and opens
 completion; @code{]]} closes it and rewrites it into canonical form, or
-says why it cannot.
+says why it cannot.  A link the index says is dead is coloured as broken
+while you write it (@pxref{Seeing Them}).
 
 @section The habit worth keeping
 
@@ -117,6 +118,51 @@ The @kbd{C-c h} prefix is @strong{not} part of it, and stays global on
 purpose: jumping between repositories and grepping across all of them are
 things you do from anywhere, including from a buffer belonging to no
 project at all.
+
+@section What the marker decides, and what the index decides
+
+@cindex index, and what depends on it
+
+Two different things gate this package, and it is worth keeping them
+apart.
+
+The @strong{project marker} decides that the mode is @emph{relevant}:
+this is a content tree, so these commands mean something here.
+
+The @strong{content index} decides which capabilities are @emph{live}.
+Everything about wikilinks reads it, and without one they have nothing to
+answer from:
+
+@multitable @columnfractions .5 .5
+@headitem Needs the index @tab Works without it
+@item Completion after @code{[[} @tab Colouring wikilinks by part
+@item Rewriting a link on @code{]]} @tab Content-table previews
+@item @kbd{C-c h .} following a link @tab @kbd{C-c h i}, which builds one
+@item Marking a link broken @tab The @kbd{C-c h} repository commands
+@end multitable
+
+@noindent
+Each of those behaves differently without one, and deliberately so:
+
+@multitable @columnfractions .3 .7
+@item @kbd{C-c h .} @tab Refuses, naming the command that builds an index.
+@item Completion @tab Offers nothing.  A completion function that raised an
+error would be a completion function nobody could type through.
+@item @code{]]} @tab Leaves the link as typed and @emph{says so}, once per
+buffer.  Silence would be the worst outcome available: the author asked for
+a check and would get neither the check nor a reason.
+@item Colouring @tab Continues, minus the verdict.
+@end multitable
+
+So the mode still turns on without an index --- withholding it would take
+away the previews and the colouring, which do not need one, and leave no
+way to see why.  What it does instead is @strong{say so}: the lighter
+reads @samp{HL?} rather than @samp{HL}, and enabling the mode in a buffer
+with no index says once where to get one.
+
+@kbd{C-c h i} then rebuilds it and re-examines every open content buffer,
+so the lighter and the broken-link marking both catch up without
+reopening anything.
 
 @section It usually turns itself on
 
@@ -304,10 +350,57 @@ to them.
 @cindex repositories
 @cindex constellation
 
-A directory is a HeroicLands content project when it carries a
-package-build configuration --- @file{package-build.config.yaml},
-@file{.yml} or @file{.mjs}, any one of them.  That is the whole test, so a
-new repository joins by existing.
+A directory is a HeroicLands content project when it is a git checkout
+carrying a package-build configuration --- @file{package-build.config.yaml},
+@file{.yml} or @file{.mjs}, any one of them.
+
+@vindex heroiclands-project-roots
+@vindex heroiclands-project-search-depth
+@findex heroiclands-refresh-projects
+
+@code{heroiclands-project-roots} says where to look.  Each entry is
+searched like this:
+
+@itemize
+@item a directory that is @strong{itself} a project is taken as one, and is
+@strong{not searched further};
+@item otherwise its subdirectories are searched, to
+@code{heroiclands-project-search-depth} (3).
+@end itemize
+
+Stopping at a project is the important half.  A checkout inside a
+checkout --- a worktree under @file{.claude/worktrees/}, a vendored
+source --- is the @emph{same} project, not another one, and descending
+would find the same package twice.
+
+So a root may be a directory holding repositories, or a project itself, or
+any mixture of the two:
+
+@example
+(setq heroiclands-project-roots
+      '("~/work/heroiclands"      ; a directory of repositories
+        "~/src/sohl-thalorna"))   ; one particular project
+@end example
+
+@strong{Left unset it searches nowhere.}  Nothing about a filesystem is
+guessed --- not a conventional directory, and not the siblings of the
+current checkout --- because either would be this package asserting where
+your repositories ought to live.
+
+What that costs is bounded.  The project a buffer belongs to is found by
+@code{project}, not by this list, so the local index still loads and local
+links still resolve and are still checked.  What needs the list is
+everything @emph{across} projects: resolving a canonical
+@code{<package>-<type>-<shortcode>} address into another package, and the
+@kbd{C-c h} commands that span repositories.
+
+A linked worktree counts as a checkout: there @file{.git} is a file rather
+than a directory, and someone editing in one should not find the package
+inert.
+
+@kbd{M-x heroiclands-refresh-projects} searches again after a repository is
+cloned or removed.  The result is cached in between, since it walks the
+filesystem.
 
 @multitable @columnfractions .18 .82
 @item @kbd{C-c h h} @tab Jump to any repo.
@@ -433,6 +526,7 @@ exactly right, and the half nobody can remember.
 * Completion::          Three modes, chosen by what you type.
 * Normalization::       What typing @code{]]} does.
 * Following a Link::    Jumping to the note, or to a section.
+* Seeing Them::         What the colours mean.
 @end menu
 
 @node Completion
@@ -551,6 +645,86 @@ file.
 
 A link naming an unknown note, or an anchor the note does not declare,
 says so and lists the anchors that do exist.
+
+@node Seeing Them
+@section Seeing Them
+
+@cindex highlighting
+@cindex colours
+@cindex broken links
+
+In plain markdown every part of @code{[[address#anchor|display]]} looks
+like prose.  They are coloured by part, because they are not equally
+interesting:
+
+@multitable @columnfractions .3 .7
+@item @strong{address} @tab The part that has to be exactly right, and the
+part nobody can read.  Given the strongest colour.
+@item @strong{#anchor} @tab The section within that note, in a lighter
+shade of the same.
+@item @strong{|display} @tab The words a reader actually sees.  Kept close
+to body text on purpose --- it @emph{is} the prose, and colouring it like a
+link would make the sentence harder to read rather than easier.
+@item @strong{brackets} @tab Structure, so they recede.
+@end multitable
+
+@subsection A colour that means something
+
+@vindex heroiclands-highlight-check-targets
+
+A link naming a note the index does not hold, or an anchor the note does
+not declare, is drawn as @strong{broken} --- a warning colour with a wavy
+underline.  So a dead link is visible while it is being written, rather
+than at build time.
+
+That is the point of highlighting here rather than adding a generic
+wikilink pattern: the colour carries a fact, not a category.  Set
+@code{heroiclands-highlight-check-targets} to @code{nil} for plain
+colouring with no verdict.
+
+@subsection A package name is not a directory name
+
+@findex heroiclands-project-package
+
+A wikilink names a @emph{package}; a root holds @emph{directories}, and in
+this constellation the two have never once matched --- 
+@file{Song-of-Heroic-Lands-FoundryVTT} publishes @code{sohl},
+@file{sohl-thalorna} publishes @code{thalorna}, @file{HarnMaster-3-FoundryVTT}
+publishes @code{hm3}.
+
+So @code{heroiclands-index-projects} matches an entry against the package
+name first and the directory name second: write @code{thalorna}, the name
+already known from links, and it finds the project wherever it is cloned.
+
+The name is read from @code{contentPackage} in the configuration --- the one
+fact worth taking from that file rather than from an index, since it is
+wanted @emph{before} an index exists.  Both forms are read, with a
+difference that matters: in YAML a bare word is a string, but in JavaScript
+it is a variable, so only a quoted literal is taken from a @file{.mjs}.  A
+computed one yields nothing rather than an invented answer.
+
+@subsection Not held is not the same as not there
+
+@vindex heroiclands-index-projects
+
+A wikilink may name a note in another package by its canonical
+@code{<package>-<type>-<shortcode>} address --- @code{sohl-being-aurochs}
+cited from a @code{thalorna} note.  Resolving one means holding that
+package's index too, so @code{heroiclands-index-projects} says which to
+read; it defaults to every project under @code{heroiclands-root} that has
+an index built.
+
+A target whose package is @emph{not} loaded is never marked broken.  Only
+a bare local slug, or a canonical address in a package actually held, can
+be reported dead.  A colour that guesses is a colour nobody trusts, and
+the first false alarm spends that trust.
+
+@subsection Without an index
+
+The colouring is a pure reading of the link's own structure, so it works
+with no index at all --- what stops is the verdict.  Nothing is reported
+broken, the lighter reads @samp{HL?}, and
+@kbd{C-c h i} puts both back.  @xref{The Mode}.
 
 @node Content Tables
 @chapter Content Tables

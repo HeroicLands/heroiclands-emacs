@@ -35,6 +35,16 @@ than a broken link that surfaces in a build days later.
 
 `C-c h .` follows a link, landing on the anchor's line. `C-c h ,` comes back.
 
+**Wikilinks you can see.** Each part of `[[address#anchor|display]]` is
+coloured by what it is — the address strongest, since it has to be exactly
+right and nobody can read it; the display half kept close to body text, since
+it *is* the prose. A link naming a note the index does not hold, or an anchor
+the note does not declare, is drawn broken with a wavy underline, so a dead
+link shows while you write it rather than at build time.
+
+A target in a package whose index isn't loaded is never marked broken — not
+held is not the same as not there.
+
 **Content tables, rendered live.** `C-c h d` previews each fenced `dataview`
 block as an overlay beneath it, rendered through the *build's own expander* — so
 a preview cannot disagree with what ships. The buffer is never modified.
@@ -79,8 +89,13 @@ line is what actually turns the mode on:
 (require 'heroiclands)            ; the constellation, and the C-c h map
 (require 'heroiclands-index)      ; the content index
 (require 'heroiclands-goto)       ; wikilink completion and normalization
+(require 'heroiclands-highlight)  ; colouring, and marking dead links
 (require 'heroiclands-dataview)   ; content-table previews
 (require 'heroiclands-hbs)        ; Handlebars helper completion
+
+;; Where your content repositories live. Either a directory holding them,
+;; or the projects themselves, or a mixture — see below.
+(setq heroiclands-project-roots '("~/dev/github"))
 
 (global-heroiclands-mode 1)       ; turn it on where it applies
 ```
@@ -88,25 +103,95 @@ line is what actually turns the mode on:
 Each `require` after the first is optional — load only the features you want,
 and the mode installs whichever are present.
 
-With `use-package` and a VC recipe (Emacs 30+):
+With `use-package` and a VC recipe (Emacs 29+):
 
 ```elisp
 (use-package heroiclands
-  :vc (:url "https://github.com/HeroicLands/heroiclands-emacs" :rev :newest)
+  :vc (:url "https://github.com/HeroicLands/heroiclands-emacs"
+       :rev :newest
+       :doc "doc/heroiclands.texi")     ; without this there is no manual
   :config
   (require 'heroiclands-index)
   (require 'heroiclands-goto)
+  (require 'heroiclands-highlight)
   (require 'heroiclands-dataview)
+  (require 'heroiclands-hbs)
+  (setq heroiclands-project-roots '("~/dev/github"))
   (global-heroiclands-mode 1))
 ```
 
-Or with `straight.el`:
+**`:doc` is not optional.** `package-vc` builds a manual only from the file the
+spec names — it runs `makeinfo` and `install-info` on it — so leaving it out
+installs the code without the documentation, and `C-c h ?` and `C-h i` both
+come up empty.
+
+Or with `straight.el`, which does not build Texinfo; run `make` in the clone:
 
 ```elisp
 (straight-use-package
  '(heroiclands :type git :host github :repo "HeroicLands/heroiclands-emacs"))
+(setq heroiclands-project-roots '("~/dev/github"))
 (global-heroiclands-mode 1)
 ```
+
+### If you are working *on* this package
+
+Load it from the checkout you edit, not from a second copy a package manager
+made:
+
+```elisp
+(use-package heroiclands
+  :ensure nil          ; it is not on an archive
+  :demand t            ; nothing defers to; the mode must be armed at startup
+  :load-path "~/dev/github/heroiclands-emacs"
+  :config
+  (require 'heroiclands-index)
+  (require 'heroiclands-goto)
+  (require 'heroiclands-highlight)
+  (require 'heroiclands-dataview)
+  (require 'heroiclands-hbs)
+  (setq heroiclands-project-roots '("~/dev/github"))
+  (global-heroiclands-mode 1))
+```
+
+A `:vc` recipe would clone into `elpa/` and ignore your working tree, so every
+change would need a commit, a push and a `package-vc-upgrade` before Emacs saw
+it. Build the manual yourself with `make`; nothing else differs.
+
+`:ensure nil` matters if your config sets `use-package-always-ensure` — there
+is no archive package to install — and `:demand t` if it sets
+`use-package-always-defer`, since there is nothing to defer *until*:
+`global-heroiclands-mode` has to be on before the first content note is
+opened, and a deferred `:config` never runs.
+
+### What the marker decides, and what the index decides
+
+Two different things gate this package.
+
+The **project marker** decides the mode is *relevant* — this is a content tree.
+The **content index** decides which capabilities are *live*:
+
+| Needs the index | Works without it |
+| --- | --- |
+| Completion after `[[` | Colouring wikilinks by part |
+| Rewriting a link on `]]` | Content-table previews |
+| `C-c h .` following a link | `C-c h i`, which builds one |
+| Marking a link broken | The `C-c h` repository commands |
+
+Each behaves differently without one, deliberately: `C-c h .` refuses and names
+the command that builds an index; completion offers nothing (a completion
+function that raised an error would be one nobody could type through); `]]`
+leaves the link as typed and **says so** once per buffer, because silence there
+is the worst outcome — you asked for a check and would get neither the check nor
+a reason; and colouring continues without the verdict.
+
+So the mode still turns on without an index — withholding it would take away
+the previews and the colouring, which don't need one, and leave no way to see
+why. It also **says so**: the lighter reads `HL?` rather than `HL`, and enabling
+it in a buffer with no index tells you once where to get one.
+
+`C-c h i` then rebuilds and re-examines every open content buffer, so lighters
+and broken-link marking catch up without reopening anything.
 
 ### Where it turns itself on
 
@@ -249,14 +334,112 @@ Rebuild the index (`C-c h i`) after adding or renaming notes. Completion, link
 following, and normalization all read the index rather than the tree, and
 nothing rebuilds it for you.
 
+### Finding your projects
+
+`heroiclands-project-roots` is the list of places to look. Each entry is
+searched like this:
+
+- if the directory is **itself a project** — a git checkout carrying a
+  `package-build.config.*` — it is taken as one, and **not searched further**;
+- otherwise its subdirectories are searched, down to
+  `heroiclands-project-search-depth` (3).
+
+Searching stops at a project deliberately: a checkout inside a checkout — a
+worktree under `.claude/worktrees/`, a vendored source — is the *same* project,
+not another one.
+
+So a root may be a directory holding your repositories:
+
+```elisp
+(setq heroiclands-project-roots '("~/dev/github"))
+```
+
+or the projects themselves, or any mixture:
+
+```elisp
+(setq heroiclands-project-roots
+      '("~/work/heroiclands"          ; a directory of repositories
+        "~/src/sohl-thalorna"))       ; one specific project
+```
+
+**Left unset, it searches nowhere.** Nothing about your filesystem is
+guessed — not a conventional directory, not the siblings of the current
+checkout — because either would be this package asserting where your
+repositories ought to live.
+
+What that costs is bounded, and worth knowing precisely:
+
+| With no roots set | |
+| --- | --- |
+| The mode | still turns on |
+| The local project's index | still loads — `project.el` finds the buffer's own checkout |
+| `[[being-aurochs]]` | resolves; a dead local link is still flagged |
+| `[[thalorna-being-x]]` | not resolvable, and correctly *not* flagged |
+| `C-c h h` / `C-c h g` across repos | nothing to search |
+
+So setting it is what buys you links **across** packages, and the
+constellation commands. Local editing works without it.
+
+A linked worktree counts as a checkout (`.git` is a file there rather than a
+directory). Someone editing in one should not find the package inert.
+
+`M-x heroiclands-refresh-projects` searches again after you clone or remove a
+repository; the result is cached in between, since it walks the filesystem.
+
+### Package names are not directory names
+
+A wikilink names a **package**; a root holds **directories**. In this
+constellation the two have never once matched:
+
+| Directory | Publishes |
+| --- | --- |
+| `Song-of-Heroic-Lands-FoundryVTT` | `sohl` |
+| `sohl-thalorna` | `thalorna` |
+| `sohl-kethira-basic` | `kethira` |
+| `HarnMaster-3-FoundryVTT` | `hm3` |
+
+So `heroiclands-index-projects` matches an entry against the **package name
+first**, and the directory name second — write `"thalorna"`, the name you
+already know from links, and it finds `sohl-thalorna` wherever it is cloned.
+An entry containing a slash is taken as a path.
+
+The package name is read from `contentPackage` in the configuration — the one
+thing worth taking from that file rather than from an index, because it is
+wanted *before* an index exists, which is exactly when you are saying which
+projects to load.
+
+Both configuration forms are read, with a difference that matters. In YAML a
+bare word is a string, so quoted and unquoted mean the same. In JavaScript a
+bare word is a *variable*, so only a quoted literal is taken from a `.mjs` —
+that form exists so values can be computed, and reading an identifier as
+though it were the name would be inventing an answer. A computed one yields
+nothing, and the project stays selectable by directory or path.
+
+### Links to other packages
+
+A wikilink may name a note in another package by its canonical
+`<package>-<type>-<shortcode>` address — `sohl-being-aurochs` cited from a
+`thalorna` note. Resolving one means holding that package's index too, so
+`heroiclands-index-projects` says which to read; it defaults to every project
+that `heroiclands-project-roots` finds and that has an index built.
+
+A target belonging to a package that **isn't** loaded is never marked broken.
+Not held is not the same as not there, and a colour that guesses is a colour
+nobody trusts. Only a link whose package *is* loaded, or a bare local slug,
+can be reported dead.
+
 ## Configuration
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `heroiclands-root` | `~/dev/github` | Where the repositories live |
+
 | `heroiclands-markers` | the three `package-build.config.*` names | What marks a project |
 | `heroiclands-index-relative-dir` | `build/content-index` | Where the index is written |
 | `heroiclands-goto-canonicalize-on-close` | `t` | Rewrite a link when `]]` is typed |
+| `heroiclands-project-roots` | `nil` | Where to look for projects; nil = siblings of the current one |
+| `heroiclands-project-search-depth` | `3` | How far below a root to search |
+| `heroiclands-index-projects` | `all` | Whose indexes to resolve links against |
+| `heroiclands-highlight-check-targets` | `t` | Mark links the index says are dead |
 | `heroiclands-dataview-max-rows` | `40` | Preview truncation; `nil` for all |
 | `heroiclands-index-jq` | `jq` | The jq executable |
 
