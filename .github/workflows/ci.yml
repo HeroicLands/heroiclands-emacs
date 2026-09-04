@@ -8,9 +8,21 @@ name: CI
 # function is a typo or a missing `declare-function` — and a package that
 # tolerates a few of them stops being able to see the next one.
 #
-# Emacs is pinned to the version `Package-Requires` claims, plus the current
-# release. The floor is the promise made to anyone installing this; testing only
-# on the newest build would leave that promise unverified.
+# Three versions, each answering a different question.
+#
+#   29.1              the floor `Package-Requires' claims — pinned by
+#                     `xref-go-back', which replaced `xref-pop-marker-stack'
+#                     in that release. It is a promise made to anyone
+#                     installing this, and a promise nothing exercises is not
+#                     one.
+#   31.1              what the maintainer actually runs. Between the other
+#                     two, and so covered by neither.
+#   release-snapshot  the development build, as early warning.
+#
+# The floor is not ceremony. A newer Emacs is more tolerant of malformed
+# elisp — a bare quote ending a docstring early is read anyway on 31 and
+# refused on 29.1 — so the oldest job is the one that catches a whole class
+# of defect the maintainer's own Emacs cannot.
 
 on:
     push:
@@ -28,7 +40,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                emacs: ["29.1", "release-snapshot"]
+                emacs: ["29.1", "31.1", "release-snapshot"]
         steps:
             - uses: actions/checkout@v7
 
