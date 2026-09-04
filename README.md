@@ -103,25 +103,66 @@ line is what actually turns the mode on:
 Each `require` after the first is optional — load only the features you want,
 and the mode installs whichever are present.
 
-With `use-package` and a VC recipe (Emacs 30+):
+With `use-package` and a VC recipe (Emacs 29+):
 
 ```elisp
 (use-package heroiclands
-  :vc (:url "https://github.com/HeroicLands/heroiclands-emacs" :rev :newest)
+  :vc (:url "https://github.com/HeroicLands/heroiclands-emacs"
+       :rev :newest
+       :doc "doc/heroiclands.texi")     ; without this there is no manual
   :config
   (require 'heroiclands-index)
   (require 'heroiclands-goto)
+  (require 'heroiclands-highlight)
   (require 'heroiclands-dataview)
+  (require 'heroiclands-hbs)
+  (setq heroiclands-project-roots '("~/dev/github"))
   (global-heroiclands-mode 1))
 ```
 
-Or with `straight.el`:
+**`:doc` is not optional.** `package-vc` builds a manual only from the file the
+spec names — it runs `makeinfo` and `install-info` on it — so leaving it out
+installs the code without the documentation, and `C-c h ?` and `C-h i` both
+come up empty.
+
+Or with `straight.el`, which does not build Texinfo; run `make` in the clone:
 
 ```elisp
 (straight-use-package
  '(heroiclands :type git :host github :repo "HeroicLands/heroiclands-emacs"))
+(setq heroiclands-project-roots '("~/dev/github"))
 (global-heroiclands-mode 1)
 ```
+
+### If you are working *on* this package
+
+Load it from the checkout you edit, not from a second copy a package manager
+made:
+
+```elisp
+(use-package heroiclands
+  :ensure nil          ; it is not on an archive
+  :demand t            ; nothing defers to; the mode must be armed at startup
+  :load-path "~/dev/github/heroiclands-emacs"
+  :config
+  (require 'heroiclands-index)
+  (require 'heroiclands-goto)
+  (require 'heroiclands-highlight)
+  (require 'heroiclands-dataview)
+  (require 'heroiclands-hbs)
+  (setq heroiclands-project-roots '("~/dev/github"))
+  (global-heroiclands-mode 1))
+```
+
+A `:vc` recipe would clone into `elpa/` and ignore your working tree, so every
+change would need a commit, a push and a `package-vc-upgrade` before Emacs saw
+it. Build the manual yourself with `make`; nothing else differs.
+
+`:ensure nil` matters if your config sets `use-package-always-ensure` — there
+is no archive package to install — and `:demand t` if it sets
+`use-package-always-defer`, since there is nothing to defer *until*:
+`global-heroiclands-mode` has to be on before the first content note is
+opened, and a deferred `:config` never runs.
 
 ### What the marker decides, and what the index decides
 
