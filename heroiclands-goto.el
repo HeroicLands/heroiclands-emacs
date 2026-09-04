@@ -228,18 +228,26 @@ See Info node `(heroiclands)Following a Link'."
                  "")))))
 
 (defun heroiclands-goto--content-dir (root)
-  "The content tree ROOT declares, read from `package-build.config.yaml'.
+  "The content tree ROOT declares, or nil to take the conventional layout.
 
-Defaults to the conventional layout when the file names none."
-  (let ((config (expand-file-name "package-build.config.yaml" root)))
-    (when (file-readable-p config)
-      (with-temp-buffer
-        (insert-file-contents config)
-        (goto-char (point-min))
-        (when (re-search-forward "^paths:[ \t]*$" nil t)
-          (let ((end (or (save-excursion (re-search-forward "^[^ \t\n#]" nil t)) (point-max))))
-            (when (re-search-forward "^[ \t]+content:[ \t]*\\(.+?\\)[ \t]*$" end t)
-              (string-trim (match-string 1) "[\"']" "[\"']"))))))))
+Reads `paths.content' from whichever of `heroiclands-markers' ROOT carries.
+Only the YAML forms are read: a `.mjs' configuration computes its values by
+running code, and guessing at them with a regexp would be worse than taking
+the default, so that form falls through to the caller's fallback."
+  (seq-some
+   (lambda (marker)
+     (and (string-match-p "\\.ya?ml\\'" marker)
+          (let ((config (expand-file-name marker root)))
+            (when (file-readable-p config)
+              (with-temp-buffer
+                (insert-file-contents config)
+                (goto-char (point-min))
+                (when (re-search-forward "^paths:[ \t]*$" nil t)
+                  (let ((end (or (save-excursion (re-search-forward "^[^ \t\n#]" nil t))
+                                 (point-max))))
+                    (when (re-search-forward "^[ \t]+content:[ \t]*\\(.+?\\)[ \t]*$" end t)
+                      (string-trim (match-string 1) "[\"']" "[\"']")))))))))
+   heroiclands-markers))
 
 ;;;###autoload
 (defun heroiclands-goto-back ()
