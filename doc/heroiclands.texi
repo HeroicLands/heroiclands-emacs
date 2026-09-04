@@ -118,6 +118,39 @@ purpose: jumping between repositories and grepping across all of them are
 things you do from anywhere, including from a buffer belonging to no
 project at all.
 
+@section What the marker decides, and what the index decides
+
+@cindex index, and what depends on it
+
+Two different things gate this package, and it is worth keeping them
+apart.
+
+The @strong{project marker} decides that the mode is @emph{relevant}:
+this is a content tree, so these commands mean something here.
+
+The @strong{content index} decides which capabilities are @emph{live}.
+Everything about wikilinks reads it, and without one they have nothing to
+answer from:
+
+@multitable @columnfractions .5 .5
+@headitem Needs the index @tab Works without it
+@item Completion after @code{[[} @tab Colouring wikilinks by part
+@item Rewriting a link on @code{]]} @tab Content-table previews
+@item @kbd{C-c h .} following a link @tab @kbd{C-c h i}, which builds one
+@item Marking a link broken @tab The @kbd{C-c h} repository commands
+@end multitable
+
+@noindent
+So the mode still turns on without an index --- withholding it would take
+away the previews and the colouring, which do not need one, and leave no
+way to see why.  What it does instead is @strong{say so}: the lighter
+reads @samp{HL?} rather than @samp{HL}, and enabling the mode in a buffer
+with no index says once where to get one.
+
+@kbd{C-c h i} then rebuilds it and re-examines every open content buffer,
+so the lighter and the broken-link marking both catch up without
+reopening anything.
+
 @section It usually turns itself on
 
 @code{global-heroiclands-mode} enables it in a buffer that is visiting a

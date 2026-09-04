@@ -108,6 +108,28 @@ Or with `straight.el`:
 (global-heroiclands-mode 1)
 ```
 
+### What the marker decides, and what the index decides
+
+Two different things gate this package.
+
+The **project marker** decides the mode is *relevant* — this is a content tree.
+The **content index** decides which capabilities are *live*:
+
+| Needs the index | Works without it |
+| --- | --- |
+| Completion after `[[` | Colouring wikilinks by part |
+| Rewriting a link on `]]` | Content-table previews |
+| `C-c h .` following a link | `C-c h i`, which builds one |
+| Marking a link broken | The `C-c h` repository commands |
+
+So the mode still turns on without an index — withholding it would take away
+the previews and the colouring, which don't need one, and leave no way to see
+why. Instead it **says so**: the lighter reads `HL?` rather than `HL`, and
+enabling it in a buffer with no index tells you once where to get one.
+
+`C-c h i` then rebuilds and re-examines every open content buffer, so lighters
+and broken-link marking catch up without reopening anything.
+
 ### Where it turns itself on
 
 `global-heroiclands-mode` enables `heroiclands-mode` in a buffer that is all
@@ -249,6 +271,19 @@ Rebuild the index (`C-c h i`) after adding or renaming notes. Completion, link
 following, and normalization all read the index rather than the tree, and
 nothing rebuilds it for you.
 
+### Links to other packages
+
+A wikilink may name a note in another package by its canonical
+`<package>-<type>-<shortcode>` address — `sohl-being-aurochs` cited from a
+`thalorna` note. Resolving one means holding that package's index too, so
+`heroiclands-index-projects` says which to read; it defaults to every project
+under `heroiclands-root` that has an index built.
+
+A target belonging to a package that **isn't** loaded is never marked broken.
+Not held is not the same as not there, and a colour that guesses is a colour
+nobody trusts. Only a link whose package *is* loaded, or a bare local slug,
+can be reported dead.
+
 ## Configuration
 
 | Variable | Default | What it does |
@@ -257,6 +292,8 @@ nothing rebuilds it for you.
 | `heroiclands-markers` | the three `package-build.config.*` names | What marks a project |
 | `heroiclands-index-relative-dir` | `build/content-index` | Where the index is written |
 | `heroiclands-goto-canonicalize-on-close` | `t` | Rewrite a link when `]]` is typed |
+| `heroiclands-index-projects` | `all` | Whose indexes to resolve links against |
+| `heroiclands-highlight-check-targets` | `t` | Mark links the index says are dead |
 | `heroiclands-dataview-max-rows` | `40` | Preview truncation; `nil` for all |
 | `heroiclands-index-jq` | `jq` | The jq executable |
 

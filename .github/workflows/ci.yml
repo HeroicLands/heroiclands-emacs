@@ -48,7 +48,7 @@ jobs:
                     --eval '(setq byte-compile-error-on-warn t)' \
                     -f batch-byte-compile \
                     heroiclands.el heroiclands-hbs.el heroiclands-dataview.el \
-                    heroiclands-index.el heroiclands-goto.el
+                    heroiclands-index.el heroiclands-goto.el heroiclands-highlight.el
 
             - name: Build the manual
               run: make info

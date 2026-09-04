@@ -43,6 +43,31 @@ here only for a project that relocates the directory."
   "The jq executable used by `heroiclands-index-query'."
   :type 'string :group 'heroiclands-index)
 
+(defcustom heroiclands-index-projects 'all
+  "Which projects' content indexes to read, besides this one's.
+
+A wikilink may name a note in **another package**, written in the canonical
+form `<package>-<type>-<shortcode>' — `sohl-being-aurochs' cited from a
+`thalorna' note.  Resolving one means holding that package's index too, so
+this says which to load:
+
+  `all'   every project under `heroiclands-root' that has an index built.
+  LIST    a list of project directory names, such as the two strings
+          \"sohl-thalorna\" and \"package-build\".
+  nil     this project only; a cross-package link cannot be resolved.
+
+`all' is the default because the alternative is silent: an unresolvable
+link is indistinguishable from a wrong one, so a package left out of the
+list would have its links reported broken rather than unknown.
+
+Only projects with an index already built contribute.  Nothing is built as
+a side effect of reading — run \\[heroiclands-index-rebuild] in a project to
+add it."
+  :type '(choice (const :tag "Every project that has one" all)
+                 (repeat :tag "Named projects" string)
+                 (const :tag "This project only" nil))
+  :group 'heroiclands-index)
+
 (defvar heroiclands-index-query-history nil
   "Minibuffer history of jq queries run against the content index.")
 
@@ -62,6 +87,31 @@ There is exactly one per project — a configuration declares a single
          (dir (expand-file-name heroiclands-index-relative-dir root)))
     (car (and (file-directory-p dir)
               (directory-files dir t "\\.jsonl\\'" t)))))
+
+(defun heroiclands-index-files (&optional root)
+  "Every content index to resolve wikilinks against, from the project at ROOT.
+
+This project's own index comes **last**, so that where two packages publish
+the same bare `type-shortcode' slug, the local note is the one a local link
+means.  Canonical `<package>-<type>-<shortcode>' keys are unambiguous and so
+unaffected by the order.
+
+Projects named in `heroiclands-index-projects' that have no index built
+contribute nothing, silently: this is a read, and building someone else's
+index is not this command's business."
+  (let* ((root (or root (heroiclands-index--root)))
+         (own (heroiclands-index-file root))
+         (others
+          (cond
+           ((eq heroiclands-index-projects 'all)
+            (seq-remove (lambda (d) (file-equal-p d root)) (heroiclands-projects)))
+           ((listp heroiclands-index-projects)
+            (seq-filter #'file-directory-p
+                        (mapcar (lambda (n) (expand-file-name n heroiclands-root))
+                                heroiclands-index-projects)))
+           (t nil))))
+    (append (delq nil (mapcar #'heroiclands-index-file others))
+            (and own (list own)))))
 
 ;;;###autoload
 (defun heroiclands-index-rebuild ()
@@ -92,9 +142,19 @@ See Info node `(heroiclands)The Content Index'."
                (code (process-exit-status proc)))
            (kill-buffer out)
            (if (zerop code)
-               ;; The CLI reports "<package> → <path> (N notes, K KiB)"; show
-               ;; its own last line rather than paraphrasing it.
-               (message "%s" (car (last (split-string text "\n" t))))
+               (progn
+                 ;; Every content buffer is now looking at a stale answer:
+                 ;; its lighter, and any broken-link highlighting, were
+                 ;; computed against the index that has just been replaced.
+                 (dolist (buf (buffer-list))
+                   (with-current-buffer buf
+                     (when (bound-and-true-p heroiclands-mode)
+                       (heroiclands-mode-note-index)
+                       (when (fboundp 'heroiclands-highlight-refresh)
+                         (heroiclands-highlight-refresh)))))
+                 ;; The CLI reports "<package> → <path> (N notes, K KiB)";
+                 ;; show its own last line rather than paraphrasing it.
+                 (message "%s" (car (last (split-string text "\n" t)))))
              (message "content-index failed (%d): %s" code
                       (truncate-string-to-width text 300)))))))
     (message "Rebuilding the content index…")))

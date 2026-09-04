@@ -46,6 +46,10 @@
 (declare-function heroiclands-goto-capf "heroiclands-goto")
 (declare-function heroiclands-goto--arm "heroiclands-goto")
 (declare-function heroiclands-goto--close-link "heroiclands-goto")
+(declare-function heroiclands-highlight-enable "heroiclands-highlight")
+(declare-function heroiclands-highlight-disable "heroiclands-highlight")
+(declare-function heroiclands-highlight-refresh "heroiclands-highlight")
+(declare-function heroiclands-index-files "heroiclands-index")
 
 (defgroup heroiclands nil "HeroicLands multi-repo workflow." :group 'tools)
 
@@ -291,6 +295,36 @@ wins -- an entry whose key prefix matches the manifest's own `package'."
 ;; project at all.  What the mode carries is only what is genuinely about
 ;; *this buffer* — the completions, and the wikilink machinery.
 
+(defvar-local heroiclands--index-present nil
+  "Whether a content index was found when this buffer's mode was enabled.
+
+Read by the mode-line lighter, and recomputed by
+`heroiclands-mode-note-index', which \\[heroiclands-index-rebuild] calls when
+it finishes.  Cached rather than tested per redisplay: locating an index
+walks the constellation, which is nothing once and far too much sixty times
+a second.")
+
+(defun heroiclands-mode-note-index ()
+  "Re-check whether this buffer has a content index, and redraw the lighter."
+  (setq heroiclands--index-present
+        (and (fboundp 'heroiclands-index-files)
+             (ignore-errors
+               (consp (heroiclands-index-files (heroiclands--project-root))))))
+  (force-mode-line-update))
+
+(defun heroiclands--lighter ()
+  "The mode-line lighter: \=` HL\=` normally, \=` HL?\=` with no index built.
+
+The distinction is worth a character because it is the difference between
+the mode working and half of it silently doing nothing.  The project marker
+decides that this package is *relevant* here; the index decides which of it
+is *live*, and only one of those is visible without being told."
+  (if heroiclands--index-present
+      " HL"
+    (propertize " HL?" 'help-echo
+                "No content index built — M-x heroiclands-index-rebuild"
+                'face 'warning)))
+
 (defvar heroiclands-mode-map (make-sparse-keymap)
   "Keymap for `heroiclands-mode'.
 
@@ -310,7 +344,16 @@ files have been loaded rather than requiring all of them."
   (when (fboundp 'heroiclands-goto--arm)
     (add-hook 'post-self-insert-hook #'heroiclands-goto--arm nil t))
   (when (fboundp 'heroiclands-goto--close-link)
-    (add-hook 'post-self-insert-hook #'heroiclands-goto--close-link nil t)))
+    (add-hook 'post-self-insert-hook #'heroiclands-goto--close-link nil t))
+  (when (fboundp 'heroiclands-highlight-enable)
+    (heroiclands-highlight-enable))
+  (heroiclands-mode-note-index)
+  ;; Said once, on the way in, because the alternative is a buffer where
+  ;; completion returns nothing and the cause is invisible.
+  (unless heroiclands--index-present
+    (message "%s: no content index built — %s"
+             (buffer-name)
+             (substitute-command-keys "\\[heroiclands-index-rebuild]"))))
 
 (defun heroiclands--mode-teardown ()
   "Remove what `heroiclands--mode-setup' installed."
@@ -323,7 +366,9 @@ files have been loaded rather than requiring all of them."
   (when (fboundp 'heroiclands-goto--close-link)
     (remove-hook 'post-self-insert-hook #'heroiclands-goto--close-link t))
   (when (fboundp 'heroiclands-dataview-clear)
-    (heroiclands-dataview-clear)))
+    (heroiclands-dataview-clear))
+  (when (fboundp 'heroiclands-highlight-disable)
+    (heroiclands-highlight-disable)))
 
 ;;;###autoload
 (define-minor-mode heroiclands-mode
@@ -357,7 +402,7 @@ ones about this buffer are:
 Everything reads the content index, which nothing rebuilds for you.
 
 See Info node `(heroiclands)Top' for the manual."
-  :lighter " HL"
+  :lighter (:eval (heroiclands--lighter))
   :keymap heroiclands-mode-map
   :group 'heroiclands
   (if heroiclands-mode

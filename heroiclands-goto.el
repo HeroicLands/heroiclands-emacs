@@ -42,10 +42,14 @@
 TABLE maps a normalized address to the record's parsed plist.  Rebuilt when
 the index file changes, so following a link after a rebuild sees new notes.")
 
-(defun heroiclands-goto--index-key (file)
-  "A cache key for FILE that changes whenever its contents might have."
-  (let ((attrs (file-attributes file)))
-    (list file (file-attribute-size attrs) (file-attribute-modification-time attrs))))
+(defun heroiclands-goto--index-key (files)
+  "A cache key for FILES that changes whenever any of their contents might have."
+  (mapcar (lambda (file)
+            (let ((attrs (file-attributes file)))
+              (list file
+                    (file-attribute-size attrs)
+                    (file-attribute-modification-time attrs))))
+          (if (listp files) files (list files))))
 
 (defun heroiclands-goto--normalize (target)
   "Normalize TARGET to the form the index stores.
@@ -59,44 +63,70 @@ folded to the hyphen one before lookup."
         (concat (match-string 1 s) "-" (match-string 2 s))
       s)))
 
-(defun heroiclands-goto--index (file)
-  "Read FILE into a plist describing the index, cached by its file state.
+(defun heroiclands-goto--read-index (file table types packages)
+  "Read one JSON Lines index FILE into TABLE and TYPES.
+
+Returns the package it declares, or nil.  Every record is filed under both
+its bare `type-shortcode' slug and its canonical `package-type-shortcode'
+key, so a link resolves whichever form it was written in."
+  (let ((package nil))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (while (not (eobp))
+        (let ((line (buffer-substring-no-properties
+                     (line-beginning-position) (line-end-position))))
+          (unless (string-empty-p line)
+            (let* ((record (json-parse-string line :object-type 'plist
+                                              :null-object nil
+                                              :false-object nil))
+                   (address (plist-get record :address))
+                   (type (plist-get record :type)))
+              (when type (puthash (downcase type) t types))
+              (when-let* ((pkg (plist-get record :package)))
+                (puthash (downcase pkg) t packages)
+                (unless package (setq package pkg)))
+              (when address
+                (puthash (plist-get address :slug) record table)
+                (puthash (plist-get address :canonical) record table)))))
+        (forward-line 1)))
+    package))
+
+(defun heroiclands-goto--index (files)
+  "Read FILES into a plist describing the combined index, cached by file state.
 
 `:table' maps every address to its record, `:types' is the set of content
-types the tree holds, and `:package' is the package it compiles as — the
-last two are what decide whether typed text is an address or a name."
-  (let ((key (heroiclands-goto--index-key file)))
+types, `:packages' is the set of packages actually held, and `:package' is
+the one this project compiles as.
+
+FILES may be one path or several.  Several is the ordinary case: a wikilink
+may name a note in another package by its canonical
+`<package>-<type>-<shortcode>' address, and resolving one means holding that
+package's index too — see `heroiclands-index-projects'.  The **last** file
+wins a collision, and `heroiclands-index-files' puts this project's own
+index last, so a bare slug published by two packages means the local note."
+  (let ((key (heroiclands-goto--index-key files))
+        (files (if (listp files) files (list files))))
     (unless (equal key (car heroiclands-goto--cache))
       (let ((table (make-hash-table :test #'equal))
             (types (make-hash-table :test #'equal))
+            (packages (make-hash-table :test #'equal))
             (package nil))
-        (with-temp-buffer
-          (insert-file-contents file)
-          (goto-char (point-min))
-          (while (not (eobp))
-            (let ((line (buffer-substring-no-properties
-                         (line-beginning-position) (line-end-position))))
-              (unless (string-empty-p line)
-                (let* ((record (json-parse-string line :object-type 'plist
-                                                 :null-object nil
-                                                 :false-object nil))
-                       (address (plist-get record :address))
-                       (type (plist-get record :type)))
-                  (when type (puthash (downcase type) t types))
-                  (unless package (setq package (plist-get record :package)))
-                  ;; Both spellings resolve: the local slug, and the
-                  ;; package-qualified canonical key a cross-package link uses.
-                  (when address
-                    (puthash (plist-get address :slug) record table)
-                    (puthash (plist-get address :canonical) record table)))))
-            (forward-line 1)))
+        (dolist (file files)
+          (when (file-readable-p file)
+            ;; The local index is read last, so its package is the one the
+            ;; address/name mode test should use.
+            (setq package (or (heroiclands-goto--read-index
+                               file table types packages)
+                              package))))
         (setq heroiclands-goto--cache
-              (cons key (list :table table :types types :package package)))))
+              (cons key (list :table table :types types
+                              :packages packages :package package)))))
     (cdr heroiclands-goto--cache)))
 
-(defun heroiclands-goto--table (file)
-  "The address → record table of the index in FILE."
-  (plist-get (heroiclands-goto--index file) :table))
+(defun heroiclands-goto--table (files)
+  "The address → record table of the combined index in FILES."
+  (plist-get (heroiclands-goto--index files) :table))
 
 (defun heroiclands-goto--address-prefix-p (typed index)
   "Whether TYPED reads as the start of an address, per INDEX.
@@ -157,12 +187,12 @@ See Info node `(heroiclands)Following a Link'."
          (target (car link))
          (anchor (cdr link))
          (root (heroiclands-index--root))
-         (index (or (heroiclands-index-file root)
+         (files (or (heroiclands-index-files root)
                     (user-error "No content index built — run %s first"
                                 (substitute-command-keys
                                  "\\[heroiclands-index-rebuild]"))))
          (record (gethash (heroiclands-goto--normalize target)
-                          (heroiclands-goto--table index))))
+                          (heroiclands-goto--table files))))
     (unless record
       (user-error "No note addressed `%s' in this package's index" target))
     (let* ((file (plist-get record :file))
@@ -371,7 +401,7 @@ editing an existing link does not wake it.
 See Info node `(heroiclands)Completion'."
   (when-let* (((heroiclands-goto--armed-p))
               (root (ignore-errors (heroiclands-index--root)))
-              (file (heroiclands-index-file root))
+              (files (heroiclands-index-files root))
               (open (save-excursion
                       (save-restriction
                         (narrow-to-region (line-beginning-position) (point))
@@ -379,7 +409,7 @@ See Info node `(heroiclands)Completion'."
     (progn
       (let* ((start (+ open 2))
              (typed (buffer-substring-no-properties start (point)))
-             (index (heroiclands-goto--index file))
+             (index (heroiclands-goto--index files))
              (table (plist-get index :table))
              (hash (string-match "#" typed)))
         (cond
@@ -561,7 +591,7 @@ See Info node `(heroiclands)Normalization'."
     ;; machinery armed and fire again on the next keystroke.
     (heroiclands-goto--disarm)
     (when-let* ((root (ignore-errors (heroiclands-index--root)))
-                (file (heroiclands-index-file root))
+                (files (heroiclands-index-files root))
                 (open (save-excursion
                         (save-restriction
                           (narrow-to-region (line-beginning-position) (point))
@@ -569,7 +599,7 @@ See Info node `(heroiclands)Normalization'."
                 (raw (buffer-substring-no-properties (+ open 2) (- (point) 2))))
       ;; An author-chosen display half is not ours to replace.
       (unless (or (string-search "|" raw) (string-empty-p (string-trim raw)))
-        (let* ((index (heroiclands-goto--index file))
+        (let* ((index (heroiclands-goto--index files))
                (table (plist-get index :table))
                (hash (string-search "#" raw))
                (target (if hash (substring raw 0 hash) raw))
