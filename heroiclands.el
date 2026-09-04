@@ -34,6 +34,7 @@
 (require 'project)
 (require 'subr-x)
 (require 'compile)
+(require 'seq)
 
 ;; Declared rather than required: `info' is loaded on demand, and the only
 ;; use below is inside `with-eval-after-load'.
@@ -53,9 +54,22 @@
   "Directory holding the repository constellation."
   :type 'directory :group 'heroiclands)
 
-(defcustom heroiclands-marker "package-build.config.yaml"
-  "File whose presence marks a directory as a HeroicLands content project."
-  :type 'string :group 'heroiclands)
+(defcustom heroiclands-markers
+  '("package-build.config.yaml"
+    "package-build.config.yml"
+    "package-build.config.mjs")
+  "Files whose presence marks a directory as a HeroicLands content project.
+
+All three names package-build itself resolves, in the order it reports
+them: YAML first, `.mjs' last — the escape hatch for a consumer that needs
+to compute its configuration rather than declare it.  A project written
+either of the other two ways is a project, and checking only for `.yaml'
+would make it invisible to everything in this package.
+
+Order settles nothing here: any one of them is enough.  Two of them in one
+directory is an error, but it is package-build's error to report, not
+this package's to guess at."
+  :type '(repeat string) :group 'heroiclands)
 
 ;;;; ------------------------------------------------------------ discovery
 
@@ -70,7 +84,9 @@
 
 (defun heroiclands-project-p (dir)
   "Return non-nil when DIR is a HeroicLands content project."
-  (file-exists-p (expand-file-name heroiclands-marker dir)))
+  (seq-some (lambda (marker)
+              (file-exists-p (expand-file-name marker dir)))
+            heroiclands-markers))
 
 (defun heroiclands-projects ()
   "Repos in the constellation that carry the content toolchain."
@@ -353,7 +369,7 @@ See Info node `(heroiclands)Top' for the manual."
   "Turn on `heroiclands-mode' where it has something to do.
 
 That is: a markdown buffer visiting a file inside a project that carries
-`heroiclands-marker'."
+any of `heroiclands-markers'."
   (when (and buffer-file-name
              (derived-mode-p 'markdown-mode 'gfm-mode)
              (when-let* ((root (heroiclands--project-root)))

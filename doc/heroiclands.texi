@@ -27,9 +27,10 @@ sixteen repositories, editing TypeScript, and authoring content notes —
 previewing the tables a note declares, querying the content index, and
 writing wikilinks that are correct before the build ever sees them.
 
-Emacs 31.1 (emacs-plus, AOT native-compiled).  The configuration lives in
-@file{~/.config/emacs/}: @file{early-init.el}, @file{init.el}, and
-@file{lisp/}.
+This package is its own repository, so it can be shared and so no single
+machine holds the only copy.  Your own @file{init.el} adds it to
+@code{load-path} and turns on @code{global-heroiclands-mode}; see
+@ref{The Mode}.
 
 Almost everything hangs off the @kbd{C-c h} prefix.  Press @kbd{C-c h}
 and wait half a second; which-key lists what is there.  Every command
@@ -119,8 +120,28 @@ project at all.
 
 @section It usually turns itself on
 
-@code{global-heroiclands-mode} enables it in any markdown buffer visiting
-a file inside a project that carries @file{package-build.config.yaml}.
+@code{global-heroiclands-mode} enables it in a buffer that is visiting a
+file, in @code{markdown-mode} or @code{gfm-mode}, and inside a directory
+tree holding a package-build configuration.
+
+@vindex heroiclands-markers
+
+That last test walks up from the file looking for any of the three names
+package-build itself resolves, which is what @code{heroiclands-markers}
+holds:
+
+@verbatim
+package-build.config.yaml
+package-build.config.yml
+package-build.config.mjs
+@end verbatim
+
+@noindent
+Any one is enough.  The @file{.mjs} form is package-build's escape hatch
+for a consumer that computes its configuration rather than declaring it;
+two of them in one directory is an error, but that is package-build's
+error to report rather than this package's to guess at.
+
 That is the whole test, so a note in a new repository is covered the day
 the repository exists.
 
@@ -266,9 +287,10 @@ to them.
 @cindex repositories
 @cindex constellation
 
-A directory is a HeroicLands content project when it carries
-@file{package-build.config.yaml}.  That is the whole test, so a new
-repository joins by existing.
+A directory is a HeroicLands content project when it carries a
+package-build configuration --- @file{package-build.config.yaml},
+@file{.yml} or @file{.mjs}, any one of them.  That is the whole test, so a
+new repository joins by existing.
 
 @multitable @columnfractions .18 .82
 @item @kbd{C-c h h} @tab Jump to any repo.
@@ -772,8 +794,11 @@ Completion tells you which, by whether it can offer it.
 Anchors come from the index too.  Rebuild.
 
 @item Everything is silent in this buffer
-The content machinery only runs in a markdown buffer inside a project
-carrying @file{package-build.config.yaml}.
+The content machinery only runs in a markdown buffer visiting a file
+inside a project carrying a package-build configuration.  Check the
+@samp{HL} lighter; if it is absent, @kbd{M-x heroiclands-mode} turns it on
+regardless, and @kbd{C-h v heroiclands-markers} shows which file names
+count.
 
 @item A helper I just wrote does not complete
 @kbd{C-c h R} rescans the sources.

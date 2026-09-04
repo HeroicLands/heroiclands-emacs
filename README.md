@@ -110,23 +110,46 @@ Or with `straight.el`:
 
 ### Where it turns itself on
 
-`global-heroiclands-mode` enables `heroiclands-mode` in any **markdown buffer
-visiting a file inside a project that carries `package-build.config.yaml`**.
-That is the whole test, so a note in a new repository is covered the day the
-repository exists, and nothing needs marking.
+`global-heroiclands-mode` enables `heroiclands-mode` in a buffer that is all
+three of:
 
-The `HL` lighter in the mode line says when it is on. `C-h m` describes it.
+1. visiting a file (not a scratch buffer),
+2. in `markdown-mode` or `gfm-mode`, and
+3. inside a directory tree containing a **package-build configuration**.
+
+That third test walks up from the file looking for any of the three names
+package-build itself resolves — `heroiclands-markers`:
+
+```
+package-build.config.yaml
+package-build.config.yml
+package-build.config.mjs
+```
+
+Any one is enough. (`.mjs` is package-build's escape hatch for a consumer that
+computes its configuration rather than declaring it. Two of them in one
+directory is an error, but that is package-build's error to report — this
+package just needs to recognise a project.)
+
+So a note in a new repository is covered the day the repository exists, and
+nothing needs marking.
+
+The `HL` lighter in the mode line says when it is on; `C-h m` describes it.
 
 ### Turning it on somewhere else
 
-For a file the rule would not catch, a file-local variable — the first `mode:`
-names the major mode, and every later one names a minor mode:
+Four ways, in rough order of how permanent you want it.
+
+**One file, first line.** A file-local variable in a comment Emacs reads as
+the `-*-` line. The first `mode:` names the *major* mode; every later one
+names a *minor* mode to enable:
 
 ```markdown
 <!-- -*- mode: markdown; mode: heroiclands; -*- -->
 ```
 
-or at the end of the file:
+**One file, at the end.** A Local Variables block, which is easier to add to
+a file that already has a first line you would rather not touch:
 
 ```markdown
 <!-- Local Variables: -->
@@ -134,15 +157,24 @@ or at the end of the file:
 <!-- End: -->
 ```
 
-For a whole tree, a `.dir-locals.el` beside it:
+Emacs looks for this in the last page of the file, and each line must sit
+inside a comment — hence the `<!-- -->` wrappers in markdown.
+
+**A whole tree.** A `.dir-locals.el` in the directory:
 
 ```elisp
 ((markdown-mode . ((mode . heroiclands))))
 ```
 
-Or just `M-x heroiclands-mode`. Turning it off removes the completions, the
-wikilink machinery, and any table previews from that buffer — which is the
-point of it being a mode.
+Every markdown buffer at or below that directory gets the mode, whether or not
+a package-build configuration is anywhere above it.
+
+**Just this once.** `M-x heroiclands-mode` toggles it in the current buffer.
+
+Turning it off — by that command, or by removing the marking — removes the
+completions, the wikilink machinery, and any table previews from the buffer.
+That is the point of it being a mode: a buffer where you want none of this can
+say so.
 
 ### What is *not* in the mode
 
@@ -150,12 +182,62 @@ The `C-c h` prefix stays global on purpose. Jumping between repositories and
 grepping across all of them are things you do from anywhere, including from a
 buffer belonging to no project at all.
 
+## Usage
+
+Once the mode is on, everything is reachable two ways: a key, or a question
+you ask Emacs.
+
+### The keys
+
+| Key | Does |
+| --- | --- |
+| `C-c h ?` | **Open the manual** |
+| `C-c h i` | Rebuild this project's content index |
+| `C-c h I` | Query it with a jq filter |
+| `C-c h .` | Follow the wikilink at point, landing on its anchor |
+| `C-c h ,` | Jump back |
+| `C-c h d` | Toggle content-table previews |
+| `C-c h D` | Re-render them |
+| `C-c h h` | Jump to any repository |
+| `C-c h g` | Ripgrep across every repository at once |
+| `C-c h f` | Find a content note by filename |
+| `C-c h m` | Find a content note by canonical key |
+| `C-c h c` / `b` / `t` / `l` | Compile · typecheck · test · lint |
+| `C-c h H` / `R` | Describe a Handlebars helper · rescan them |
+
+Press `C-c h` and wait; which-key lists the rest.
+
+And while typing in a note: `[[` starts a wikilink and opens completion; `]]`
+closes it and rewrites it into canonical form, or says why it cannot.
+
+### Asking Emacs
+
+The manual is a real Info manual, so it lives where Emacs documentation lives
+and every standard help key reaches it:
+
+| Ask | Get |
+| --- | --- |
+| `C-c h ?` | The manual, at the top |
+| `C-h i` | The Info directory — it is listed under **Emacs**, beside the Emacs manual and every other |
+| `C-h f` *command* | That command's own documentation, with a link into the relevant manual node |
+| `C-h m` | In a content note: what `heroiclands-mode` does |
+| `C-h v heroiclands-markers` | Any configuration variable, with its docstring |
+| `C-h k` *key* | What a key is bound to |
+
+Nothing here needs a browser or a copy of this README.
+
+### The one habit worth keeping
+
+Rebuild the index (`C-c h i`) after adding or renaming notes. Completion, link
+following, and normalization all read the index rather than the tree, and
+nothing rebuilds it for you.
+
 ## Configuration
 
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `heroiclands-root` | `~/dev/github` | Where the repositories live |
-| `heroiclands-marker` | `package-build.config.yaml` | What marks a project |
+| `heroiclands-markers` | the three `package-build.config.*` names | What marks a project |
 | `heroiclands-index-relative-dir` | `build/content-index` | Where the index is written |
 | `heroiclands-goto-canonicalize-on-close` | `t` | Rewrite a link when `]]` is typed |
 | `heroiclands-dataview-max-rows` | `40` | Preview truncation; `nil` for all |
@@ -163,17 +245,8 @@ buffer belonging to no project at all.
 
 ## Documentation
 
-The manual is an Info manual, so it lives where Emacs documentation lives:
-
-- `C-c h ?` opens it.
-- `C-h i` lists it under **Emacs**, beside the Emacs manual and every other.
-- `C-h f` on any command describes it and links back into the relevant node.
-- `C-h m` in a content note describes the mode.
-
-### Building it
-
-The manual is written in [Texinfo](https://www.gnu.org/software/texinfo/) and
-compiled by `makeinfo`, which ships with GNU Texinfo:
+The manual source is `doc/heroiclands.texi`, written in
+[Texinfo](https://www.gnu.org/software/texinfo/) and compiled by `makeinfo`:
 
 ```bash
 make info      # makeinfo --no-split -o info/heroiclands.info doc/heroiclands.texi
@@ -194,6 +267,10 @@ If `makeinfo` is missing, install GNU Texinfo (`brew install texinfo`,
 The package registers its own `info/` directory with `Info-directory-list`, so
 the manual appears in `C-h i` without an `install-info` step or any change to
 `INFOPATH`.
+
+When adding a command, end its docstring with ``See Info node
+`(heroiclands)Some Node'.`` — help-mode turns that into a live button, which is
+what keeps `C-h f` and the manual joined up.
 
 ## Layout
 
