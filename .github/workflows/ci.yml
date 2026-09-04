@@ -58,7 +58,8 @@ jobs:
                   emacs -Q --batch -L . \
                     --eval '(progn
                               (require (quote info))
-                              (add-to-list (quote Info-directory-list) "info")
+                              (add-to-list (quote Info-directory-list)
+                                         (expand-file-name "info"))
                               (dolist (n (list "Top" "Quick Reference" "The Mode"
                                                "The Content Index" "Writing Wikilinks"
                                                "Content Tables" "Querying Content"
