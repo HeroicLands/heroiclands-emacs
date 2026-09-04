@@ -303,4 +303,23 @@ what keeps `C-h f` and the manual joined up.
 
 ## Licence
 
-GPL-3.0-or-later. See [LICENSE](LICENSE).
+[MPL-2.0](LICENSE) — the Mozilla Public License, version 2.0.
+
+**Use it for anything, commercial or not.** There is no restriction on who may
+use this, what for, or whether they charge for it, and no obligation to open
+anything you build alongside it. You can combine it with proprietary code and
+ship the result closed.
+
+**Changes to these files stay under these terms.** MPL is copyleft at the level
+of the *file*: if you modify a file from this repository and distribute it, that
+file remains MPL-2.0 and its source has to be available. Files you add of your
+own are yours, under whatever licence you like — the obligation follows the
+files it came with, not the project that contains them.
+
+That is the whole trade: improvements to this code come back, and everything
+around it is free.
+
+MPL-2.0 is also GPL-compatible, so this code can still be taken into the
+GPL-3 HeroicLands repositories. Note the reverse does not hold — do not copy
+GPL-licensed code *into* this repository, since that would encumber the whole
+of it.

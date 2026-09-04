@@ -22,12 +22,12 @@ compile:
 	$(EMACS) -Q --batch -L . -f batch-byte-compile $(LISP)
 
 ## Load every file in a clean Emacs, which catches a broken require or defun.
+##
+## The eval form is kept on ONE line deliberately: a `\'-continuation inside a
+## quoted argument is passed through to Emacs by some makes, which then reads a
+## bare backslash as a variable and fails with `void-variable \'.
 check:
-	$(EMACS) -Q --batch -L . \
-	  --eval '(dolist (f (list "heroiclands" "heroiclands-hbs" \
-	                           "heroiclands-dataview" "heroiclands-index" \
-	                           "heroiclands-goto")) (require (intern f)))' \
-	  --eval '(message "all features load")'
+	$(EMACS) -Q --batch -L . --eval '(mapc (lambda (f) (require (intern f))) (list "heroiclands" "heroiclands-hbs" "heroiclands-dataview" "heroiclands-index" "heroiclands-goto"))' --eval '(message "all features load")'
 
 ## Activate the committed git hooks for this checkout.
 ##

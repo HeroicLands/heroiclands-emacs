@@ -2,14 +2,11 @@
 ;;
 ;; Copyright (C) 2026 Tom Rodriguez
 ;;
-;; SPDX-License-Identifier: GPL-3.0-or-later
+;; SPDX-License-Identifier: MPL-2.0
 ;;
-;; This file is part of heroiclands-emacs, and is free software: you may
-;; redistribute it and/or modify it under the terms of the GNU General Public
-;; License as published by the Free Software Foundation, either version 3 of
-;; the License, or (at your option) any later version.  It is distributed
-;; WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-;; or FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file for details.
+;; This Source Code Form is subject to the terms of the Mozilla Public License,
+;; v. 2.0.  If a copy of the MPL was not distributed with this file, You can
+;; obtain one at https://mozilla.org/MPL/2.0/.
 ;;
 ;; Every content build walks the whole note tree and parses every note's
 ;; frontmatter, then throws the result away.  `content-build content-index'
