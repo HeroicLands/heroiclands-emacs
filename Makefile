@@ -17,9 +17,17 @@ info/heroiclands.info: doc/heroiclands.texi
 	@mkdir -p info
 	$(MAKEINFO) --no-split -o $@ $<
 
-## Byte-compile, with warnings shown. Not required to use the package.
+## Byte-compile, treating warnings as failures — the same as CI does.
+##
+## Local and CI agreed on everything except this, so a warning could be seen
+## and walked past here and then fail the pull request. In Emacs Lisp a
+## warning is nearly always a real defect: a free variable is a missing
+## `require', an unknown function a typo, and a stray quote a docstring that
+## silently ended early. Three such have reached CI already.
 compile:
-	$(EMACS) -Q --batch -L . -f batch-byte-compile $(LISP)
+	$(EMACS) -Q --batch -L . \
+	  --eval '(setq byte-compile-error-on-warn t)' \
+	  -f batch-byte-compile $(LISP)
 
 ## Load every file in a clean Emacs, which catches a broken require or defun.
 ##

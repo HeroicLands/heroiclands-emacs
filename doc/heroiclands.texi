@@ -682,6 +682,27 @@ wikilink pattern: the colour carries a fact, not a category.  Set
 @code{heroiclands-highlight-check-targets} to @code{nil} for plain
 colouring with no verdict.
 
+@subsection A package name is not a directory name
+
+@findex heroiclands-project-package
+
+A wikilink names a @emph{package}; a root holds @emph{directories}, and in
+this constellation the two have never once matched --- 
+@file{Song-of-Heroic-Lands-FoundryVTT} publishes @code{sohl},
+@file{sohl-thalorna} publishes @code{thalorna}, @file{HarnMaster-3-FoundryVTT}
+publishes @code{hm3}.
+
+So @code{heroiclands-index-projects} matches an entry against the package
+name first and the directory name second: write @code{thalorna}, the name
+already known from links, and it finds the project wherever it is cloned.
+
+The name is read from @code{contentPackage} in the configuration --- the one
+fact worth taking from that file rather than from an index, since it is
+wanted @emph{before} an index exists.  Both forms are read, with a
+difference that matters: in YAML a bare word is a string, but in JavaScript
+it is a variable, so only a quoted literal is taken from a @file{.mjs}.  A
+computed one yields nothing rather than an invented answer.
+
 @subsection Not held is not the same as not there
 
 @vindex heroiclands-index-projects

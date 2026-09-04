@@ -345,6 +345,35 @@ directory). Someone editing in one should not find the package inert.
 `M-x heroiclands-refresh-projects` searches again after you clone or remove a
 repository; the result is cached in between, since it walks the filesystem.
 
+### Package names are not directory names
+
+A wikilink names a **package**; a root holds **directories**. In this
+constellation the two have never once matched:
+
+| Directory | Publishes |
+| --- | --- |
+| `Song-of-Heroic-Lands-FoundryVTT` | `sohl` |
+| `sohl-thalorna` | `thalorna` |
+| `sohl-kethira-basic` | `kethira` |
+| `HarnMaster-3-FoundryVTT` | `hm3` |
+
+So `heroiclands-index-projects` matches an entry against the **package name
+first**, and the directory name second — write `"thalorna"`, the name you
+already know from links, and it finds `sohl-thalorna` wherever it is cloned.
+An entry containing a slash is taken as a path.
+
+The package name is read from `contentPackage` in the configuration — the one
+thing worth taking from that file rather than from an index, because it is
+wanted *before* an index exists, which is exactly when you are saying which
+projects to load.
+
+Both configuration forms are read, with a difference that matters. In YAML a
+bare word is a string, so quoted and unquoted mean the same. In JavaScript a
+bare word is a *variable*, so only a quoted literal is taken from a `.mjs` —
+that form exists so values can be computed, and reading an identifier as
+though it were the name would be inventing an answer. A computed one yields
+nothing, and the project stays selectable by directory or path.
+
 ### Links to other packages
 
 A wikilink may name a note in another package by its canonical

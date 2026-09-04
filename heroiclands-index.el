@@ -52,10 +52,14 @@ form `<package>-<type>-<shortcode>' — `sohl-being-aurochs' cited from a
 this says which to load:
 
   `all'   every project `heroiclands-projects' finds that has one built.
-  LIST    project directories, named or matched.  An entry containing a
-          slash is a path; anything else is matched against the directory
-          name of each project found, so \"sohl-thalorna\" selects it
-          wherever it happens to be cloned.
+  LIST    projects, named or located.  An entry containing a slash is a
+          path.  Anything else is matched against the project\'s **package
+          name** first and its directory name second, so \"thalorna\"
+          selects the project publishing that package wherever it is
+          cloned and whatever its directory is called.  The two are not
+          the same: \"sohl-thalorna\" is a directory publishing the
+          package \"thalorna\", and in this constellation no directory
+          name matches its package name.
   nil     this project only; a cross-package link cannot be resolved.
 
 `all' is the default because the alternative is silent: an unresolvable
@@ -108,18 +112,24 @@ index is not this command's business."
            ((eq heroiclands-index-projects 'all)
             (seq-remove (lambda (d) (file-equal-p d root)) (heroiclands-projects)))
            ((listp heroiclands-index-projects)
-            ;; A name selects the project of that name wherever it is; a
-            ;; path names one directly. Neither assumes a layout.
+            ;; A name selects a project wherever it is; a path names one
+            ;; directly. Neither assumes a layout.
             (seq-filter
              #'identity
              (mapcar
               (lambda (n)
                 (if (string-search "/" n)
                     (and (file-directory-p (expand-file-name n)) (expand-file-name n))
-                  (seq-find (lambda (p)
-                              (equal n (file-name-nondirectory
-                                        (directory-file-name p))))
-                            (heroiclands-projects))))
+                  ;; Package name first: that is the name a wikilink uses,
+                  ;; and the one anyone would think to write.
+                  (or (seq-find (lambda (p)
+                                  (equal (downcase n)
+                                         (downcase (or (heroiclands-project-package p) ""))))
+                                (heroiclands-projects))
+                      (seq-find (lambda (p)
+                                  (equal n (file-name-nondirectory
+                                            (directory-file-name p))))
+                                (heroiclands-projects)))))
               heroiclands-index-projects)))
            (t nil))))
     (append (delq nil (mapcar #'heroiclands-index-file others))

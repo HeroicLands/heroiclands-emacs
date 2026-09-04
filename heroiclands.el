@@ -183,6 +183,45 @@ of something else is not one either."
                    (file-exists-p (expand-file-name marker dir)))
                  heroiclands-markers)))
 
+(defun heroiclands--package-from-config (config)
+  "Read `contentPackage\=' out of the configuration file CONFIG, or nil.
+
+Both forms are read, with a difference that matters.  In YAML a bare word
+is a string, so a quoted and an unquoted value mean the same thing and
+both are taken.  In JavaScript a bare word is a *variable*, so only a
+quoted string literal is taken from a `.mjs\=': that form exists precisely
+so values can be computed, and reading an identifier as though it were the
+package name would be inventing an answer.  A computed one yields nil, and
+the project stays selectable by directory or by path like any other."
+  (with-temp-buffer
+    (insert-file-contents config)
+    (goto-char (point-min))
+    (if (string-match-p "\\.mjs\\'" config)
+        ;; Quoted literal only.
+        (when (re-search-forward
+               "contentPackage[ \t]*:[ \t]*[\"']\\([^\"']+\\)[\"']" nil t)
+          (match-string 1))
+      (when (re-search-forward
+             "^contentPackage:[ \t]*[\"']?\\([^ \t\n\"'#]+\\)[\"']?" nil t)
+        (match-string 1)))))
+
+(defun heroiclands-project-package (dir)
+  "The content package the project at DIR publishes, or nil.
+
+A directory name is not a package name, and in this constellation the two
+have never once matched: `Song-of-Heroic-Lands-FoundryVTT' publishes
+`sohl', `sohl-thalorna' publishes `thalorna', `HarnMaster-3-FoundryVTT'
+publishes `hm3'.  A wikilink names the package, so anything selecting
+projects by name has to know which is which.
+
+This is the one fact worth taking from the configuration file rather than
+from an index, because it is wanted *before* an index exists — which is
+exactly when someone is saying which projects to load."
+  (when-let* ((config (seq-find #'file-exists-p
+                                (mapcar (lambda (m) (expand-file-name m dir))
+                                        heroiclands-markers))))
+    (heroiclands--package-from-config config)))
+
 (defvar heroiclands--projects-cache nil
   "Cached result of `heroiclands-projects', with the roots it was found for.
 
