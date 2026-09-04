@@ -1,5 +1,16 @@
 ;;; heroiclands-dataview.el --- Preview content-table queries -*- lexical-binding: t; -*-
 ;;
+;; Copyright (C) 2026 Tom Rodriguez
+;;
+;; SPDX-License-Identifier: GPL-3.0-or-later
+;;
+;; This program is free software: you may redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.  It is distributed WITHOUT ANY WARRANTY; without even the
+;; implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+;; See the LICENSE file for details.
+;;
 ;; A content note declares the tables it wants with a fenced `dataview' query,
 ;; and the build fills in the rows (`@heroiclands/package-build/engine/
 ;; content-tables.mjs').  Obsidian used to render those queries live while

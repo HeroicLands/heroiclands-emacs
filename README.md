@@ -303,4 +303,34 @@ what keeps `C-h f` and the manual joined up.
 
 ## Licence
 
-GPL-3.0-or-later. See [LICENSE](LICENSE).
+[GPL-3.0-or-later](LICENSE). In plain terms:
+
+**You may use it for anything, commercial or not.** Charge for what you make
+with it. Use it at work. Nobody needs permission, and no fee is owed. The GPL
+has never restricted commercial use — that is the most common misreading of it.
+
+**You may use it on closed projects.** Author a paid FoundryVTT module — for
+Kethira, or any other setting, free or not — with this package as your editor
+tooling. Your module is yours and stays closed if you want it closed. Using a
+tool to write something has never made the something a derivative of the tool;
+GCC compiles proprietary code, and Emacs edits proprietary files, for the same
+reason.
+
+**But this package, and everything derived from it, stays free.** Modify it,
+extend it, fork it — and if you distribute what you made, it carries the same
+licence, with source. An improvement to the package cannot be taken private.
+
+That is the whole trade: **use it however you like, including to make money on
+closed work; but the package itself, and every version of it, belongs to
+everyone.**
+
+### The fine print worth knowing
+
+- The obligation triggers on **distribution**, not on modification. A private
+  copy may be hacked and never shared. Only the AGPL closes that gap, and it
+  would reach into the closed work above, which is not the intent.
+- The only thing this licence forbids that a permissive one would allow is
+  shipping these files **inside** a closed product. That is deliberate: it is
+  the case where an improvement would otherwise disappear.
+- GPL-3 is what Emacs itself and the rest of the HeroicLands repositories use,
+  so code moves between them without a licensing question.

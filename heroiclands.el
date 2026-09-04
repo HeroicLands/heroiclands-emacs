@@ -10,13 +10,12 @@
 ;;
 ;; This file is not part of GNU Emacs.
 ;;
-;; This program is free software: you can redistribute it and/or modify it
+;; This program is free software: you may redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
 ;; Software Foundation, either version 3 of the License, or (at your option)
-;; any later version.  It is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
-;; Public License for more details.
+;; any later version.  It is distributed WITHOUT ANY WARRANTY; without even the
+;; implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+;; See the LICENSE file for details.
 ;;
 ;; One config for ~16 live repositories rather than a .dir-locals.el copied
 ;; into each. A directory is a HeroicLands content project when it contains

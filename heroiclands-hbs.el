@@ -1,5 +1,16 @@
 ;;; heroiclands-hbs.el --- Handlebars helper completion -*- lexical-binding: t; -*-
 ;;
+;; Copyright (C) 2026 Tom Rodriguez
+;;
+;; SPDX-License-Identifier: GPL-3.0-or-later
+;;
+;; This program is free software: you may redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.  It is distributed WITHOUT ANY WARRANTY; without even the
+;; implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+;; See the LICENSE file for details.
+;;
 ;; Completion for `{{helper}}' in SoHL's 483 .hbs templates.
 ;;
 ;; Helper names are READ from their definitions, never restated here, so a
