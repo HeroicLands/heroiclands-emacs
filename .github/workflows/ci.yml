@@ -1,0 +1,67 @@
+name: CI
+
+# What `make` asserts, on every change: the package loads in a clean Emacs, it
+# byte-compiles without warnings, and the manual builds.
+#
+# Warnings are failures here. A byte-compile warning in Emacs Lisp is nearly
+# always a real defect — a free variable is a missing `require`, an unknown
+# function is a typo or a missing `declare-function` — and a package that
+# tolerates a few of them stops being able to see the next one.
+#
+# Emacs is pinned to the version `Package-Requires` claims, plus the current
+# release. The floor is the promise made to anyone installing this; testing only
+# on the newest build would leave that promise unverified.
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    check:
+        name: Emacs ${{ matrix.emacs }}
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                emacs: ["29.1", "release-snapshot"]
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: purcell/setup-emacs@master
+              with:
+                  version: ${{ matrix.emacs }}
+
+            - name: Install Texinfo
+              run: sudo apt-get update && sudo apt-get install -y texinfo
+
+            - name: Load every feature in a clean Emacs
+              run: make check
+
+            - name: Byte-compile, treating warnings as failures
+              run: |
+                  emacs -Q --batch -L . \
+                    --eval '(setq byte-compile-error-on-warn t)' \
+                    -f batch-byte-compile \
+                    heroiclands.el heroiclands-hbs.el heroiclands-dataview.el \
+                    heroiclands-index.el heroiclands-goto.el
+
+            - name: Build the manual
+              run: make info
+
+            - name: The manual defines every node its menus reference
+              run: |
+                  emacs -Q --batch -L . \
+                    --eval '(progn
+                              (require (quote info))
+                              (add-to-list (quote Info-directory-list) "info")
+                              (dolist (n (list "Top" "Quick Reference" "The Mode"
+                                               "The Content Index" "Writing Wikilinks"
+                                               "Content Tables" "Querying Content"
+                                               "Record Format" "Troubleshooting"))
+                                (Info-goto-node (format "(heroiclands)%s" n))
+                                (message "node ok: %s" n)))'

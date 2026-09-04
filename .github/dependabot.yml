@@ -1,0 +1,26 @@
+# Dependabot version updates.
+#
+# Only `github-actions` here. This repository ships Emacs Lisp and a Texinfo
+# manual: there is no package manifest for Dependabot to read, so the `npm`
+# ecosystem sohl-thalorna configures has nothing to act on.
+#
+# Labels are pinned to `devops` deliberately. Dependabot's own default label is
+# `dependencies`, which is not in `.github/labels.yml` — and that registry is a
+# closed set, so `labels-sync.yml` would delete the label again on the next push
+# to `main`. Naming a managed label keeps the two from fighting.
+version: 2
+updates:
+    - package-ecosystem: github-actions
+      directory: /
+      schedule:
+          interval: weekly
+          day: monday
+      open-pull-requests-limit: 5
+      labels:
+          - devops
+      commit-message:
+          prefix: chore(ci)
+      groups:
+          github-actions:
+              patterns:
+                  - "*"

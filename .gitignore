@@ -1,3 +1,46 @@
-*.elc
-info/
+# dotenv environment variables file
+/.env
+/.env.test
+/.env.local
+
+# AI
+/.claude/
+CLAUDE.md
+AI.md
+
+# Visual Studio
+/.vscode/
+/*.code-workspace
+
+# GitHub
+.github/copilot-instructions.md
+
+# macOS specific files
+# general
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Build files
+#
+# `info/` is generated from `doc/heroiclands.texi` by `make`, and `*.elc` by
+# `make compile`. Neither is committed: the source is the manual, and a stale
+# byte-compiled file is worse than none.
+/info/
+*.elc
+
+# Hidden files
+/nogit/
+*.wip

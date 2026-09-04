@@ -1,5 +1,16 @@
 ;;; heroiclands-index.el --- Rebuild and query the content index -*- lexical-binding: t; -*-
 ;;
+;; Copyright (C) 2026 Tom Rodriguez
+;;
+;; SPDX-License-Identifier: GPL-3.0-or-later
+;;
+;; This file is part of heroiclands-emacs, and is free software: you may
+;; redistribute it and/or modify it under the terms of the GNU General Public
+;; License as published by the Free Software Foundation, either version 3 of
+;; the License, or (at your option) any later version.  It is distributed
+;; WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+;; or FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file for details.
+;;
 ;; Every content build walks the whole note tree and parses every note's
 ;; frontmatter, then throws the result away.  `content-build content-index'
 ;; publishes that walk instead: one JSON object per note, in JSON Lines, under

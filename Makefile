@@ -6,7 +6,7 @@ MAKEINFO ?= makeinfo
 LISP := heroiclands.el heroiclands-hbs.el heroiclands-dataview.el \
         heroiclands-index.el heroiclands-goto.el
 
-.PHONY: all info compile check clean
+.PHONY: all info compile check hooks clean
 
 all: info
 
@@ -28,6 +28,17 @@ check:
 	                           "heroiclands-dataview" "heroiclands-index" \
 	                           "heroiclands-goto")) (require (intern f)))' \
 	  --eval '(message "all features load")'
+
+## Activate the committed git hooks for this checkout.
+##
+## sohl-thalorna does this from npm's `prepare' script; there is no package
+## manifest here, so it is a target you run once after cloning. The hooks
+## refuse a commit carrying AI attribution, and refuse committing on `main' --
+## the same rules the No Attribution workflow and the branch ruleset enforce
+## server-side, moved forward to where the fix is still cheap.
+hooks:
+	git config core.hooksPath .githooks
+	@echo "hooks active: $$(git config core.hooksPath)"
 
 clean:
 	rm -f *.elc info/heroiclands.info
