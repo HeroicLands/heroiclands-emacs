@@ -365,6 +365,21 @@ See Info node `(heroiclands)Top' for the manual."
       (heroiclands--mode-setup)
     (heroiclands--mode-teardown)))
 
+;; Let a note enable the mode from its own Local Variables block without
+;; Emacs asking permission each time it is opened.
+;;
+;; `eval:' rather than the more obvious `mode: heroiclands', because a
+;; `mode:' entry in an end-of-file block is taken as the *major* mode: Emacs
+;; enables the minor mode and then leaves the buffer in `fundamental-mode',
+;; silently losing markdown. `eval:' has neither problem.
+;;
+;; The first-line `-*-' form is not an option at all for a content note: the
+;; comment would displace the `---' that must open the file, and both
+;; gray-matter and package-build's own parser then read the note as having no
+;; frontmatter — so the build skips it.
+(dolist (form '((heroiclands-mode 1) (heroiclands-mode -1)))
+  (add-to-list 'safe-local-eval-forms form))
+
 (defun heroiclands-mode-maybe-enable ()
   "Turn on `heroiclands-mode' where it has something to do.
 

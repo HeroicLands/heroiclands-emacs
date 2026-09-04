@@ -153,40 +153,57 @@ the repository exists.
 With that in your init file there is nothing to mark: open a content note
 and the mode is on.
 
-@section Marking a single file
-
-To turn it on in a file the rule would not catch, use a file-local
-variable.  In the first line, after the major mode:
-
-@example
-<!-- -*- mode: markdown; mode: heroiclands; -*- -->
-@end example
-
-@noindent
-The first @code{mode:} names the major mode; every later one names a
-minor mode to enable.  Or, at the end of the file:
-
-@example
-<!-- Local Variables: -->
-<!-- mode: heroiclands -->
-<!-- End: -->
-@end example
-
 @section Marking a directory
 
-For a whole tree, a @file{.dir-locals.el} beside it:
+The cleanest option for a tree that the project rule does not cover: a
+@file{.dir-locals.el} in the directory.
 
 @example
 ((markdown-mode . ((mode . heroiclands))))
 @end example
 
+Every markdown buffer at or below it gets the mode.  A @code{mode} entry
+here is applied after the major mode is already set, so it does not
+disturb it.
+
+@section Marking a single file
+
+A Local Variables block at the end of the file:
+
+@example
+<!-- Local Variables: -->
+<!-- eval: (heroiclands-mode 1) -->
+<!-- End: -->
+@end example
+
+Emacs looks for this in the last part of the file, and each line must sit
+inside a comment --- hence the @samp{<!-- -->} wrappers.  This package
+registers the form in @code{safe-local-eval-forms}, so Emacs applies it
+without asking.
+
+@section Two forms that look right and are not
+
+@cindex frontmatter, and file-local variables
+
+@strong{Not the first-line @samp{-*-} form.}  A content note's
+frontmatter has to open the file: the @samp{---} must be on line one.  A
+comment above it displaces the delimiter, and both @command{gray-matter}
+and package-build's own parser then read the note as having @emph{no
+frontmatter} --- so the build skips it, silently.  An editor convenience
+is not worth the note.
+
+@strong{Not @code{mode:} in the end-of-file block.}  A @code{mode:} entry
+there is taken as the @emph{major} mode: Emacs enables the minor mode and
+then leaves the buffer in @code{fundamental-mode}, losing markdown
+entirely, and nothing says why.  Writing @code{mode: markdown} before it
+does not help.  Use @code{eval:}, above.
+
 @section Marking nothing at all
 
-@kbd{M-x heroiclands-mode} toggles it in the current buffer, and
-@kbd{M-x heroiclands-mode} again turns it off.  Turning it off removes
-the completions and the wikilink machinery from that buffer and clears
-any content-table previews, which is the point of it being a mode: a
-buffer where you want none of this can say so.
+@kbd{M-x heroiclands-mode} toggles it in the current buffer.  Turning it
+off removes the completions and the wikilink machinery from that buffer
+and clears any content-table previews, which is the point of it being a
+mode: a buffer where you want none of this can say so.
 
 @node Starting Emacs
 @chapter Starting Emacs

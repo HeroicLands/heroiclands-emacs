@@ -138,43 +138,60 @@ The `HL` lighter in the mode line says when it is on; `C-h m` describes it.
 
 ### Turning it on somewhere else
 
-Four ways, in rough order of how permanent you want it.
-
-**One file, first line.** A file-local variable in a comment Emacs reads as
-the `-*-` line. The first `mode:` names the *major* mode; every later one
-names a *minor* mode to enable:
-
-```markdown
-<!-- -*- mode: markdown; mode: heroiclands; -*- -->
-```
-
-**One file, at the end.** A Local Variables block, which is easier to add to
-a file that already has a first line you would rather not touch:
-
-```markdown
-<!-- Local Variables: -->
-<!-- mode: heroiclands -->
-<!-- End: -->
-```
-
-Emacs looks for this in the last page of the file, and each line must sit
-inside a comment — hence the `<!-- -->` wrappers in markdown.
-
-**A whole tree.** A `.dir-locals.el` in the directory:
+**A whole tree — the cleanest option.** A `.dir-locals.el` in the directory:
 
 ```elisp
 ((markdown-mode . ((mode . heroiclands))))
 ```
 
-Every markdown buffer at or below that directory gets the mode, whether or not
-a package-build configuration is anywhere above it.
+Every markdown buffer at or below it gets the mode, whether or not a
+package-build configuration is anywhere above.
 
-**Just this once.** `M-x heroiclands-mode` toggles it in the current buffer.
+**One file.** A Local Variables block at the end:
+
+```markdown
+<!-- Local Variables: -->
+<!-- eval: (heroiclands-mode 1) -->
+<!-- End: -->
+```
+
+Emacs looks for this in the last part of the file, and each line must sit
+inside a comment — hence the `<!-- -->` wrappers. The package registers this
+form in `safe-local-eval-forms`, so Emacs applies it without asking.
+
+**Just this once.** `M-x heroiclands-mode`.
 
 Turning it off — by that command, or by removing the marking — removes the
 completions, the wikilink machinery, and any table previews from the buffer.
-That is the point of it being a mode: a buffer where you want none of this can
-say so.
+That is the point of it being a mode.
+
+#### Two forms that look right and are not
+
+**Do not use the first-line `-*-` form in a content note.**
+
+```markdown
+<!-- -*- mode: markdown; mode: heroiclands; -*- -->   ← breaks the note
+```
+
+A content note's frontmatter must open the file: the `---` has to be on line
+one. A comment above it displaces the delimiter, and both gray-matter and
+package-build's own parser then read the note as having **no frontmatter** —
+so the build skips it silently. The editor convenience would cost you the
+note.
+
+**Do not use `mode:` in the end-of-file block.**
+
+```markdown
+<!-- Local Variables: -->
+<!-- mode: heroiclands -->        ← leaves you in fundamental-mode
+<!-- End: -->
+```
+
+A `mode:` entry there is taken as the *major* mode. Emacs enables the minor
+mode, then leaves the buffer in `fundamental-mode` — no markdown syntax
+highlighting, and nothing says why. Adding `mode: markdown` before it does not
+help. Use `eval:` instead; `.dir-locals.el` is unaffected, because its `mode`
+entry is applied after the major mode is already set.
 
 ### What is *not* in the mode
 
