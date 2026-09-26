@@ -377,7 +377,9 @@ Searching stops at a project deliberately: a checkout inside a checkout — a
 worktree under `.claude/worktrees/`, a vendored source — is the *same* project,
 not another one.
 
-So a root may be a directory holding your repositories:
+`C-c h h` includes a root that is itself a repository and repositories
+immediately inside a directory root. So a root may be a directory holding
+your repositories:
 
 ```elisp
 (setq heroiclands-project-roots '("~/dev/github"))
@@ -404,7 +406,8 @@ What that costs is bounded, and worth knowing precisely:
 | The local project's index | still loads — `project.el` finds the buffer's own checkout |
 | `[[being-aurochs]]` | resolves; a dead local link is still flagged |
 | `[[thalorna-being-x]]` | not resolvable, and correctly *not* flagged |
-| `C-c h h` / `C-c h g` across repos | nothing to search |
+| `C-c h h` | no repositories listed |
+| `C-c h g` | searches the current project or directory |
 
 So setting it is what buys you links **across** packages, and the
 constellation commands. Local editing works without it.
@@ -469,7 +472,7 @@ can be reported dead.
 | `heroiclands-server-directory` | under `user-emacs-directory` | Pinned server installation |
 | `heroiclands-eglot-server-command` | `nil` | Explicit server command for development |
 | `heroiclands-goto-canonicalize-on-close` | `t` | Rewrite a link when `]]` is typed |
-| `heroiclands-project-roots` | `nil` | Where to look for projects; nil = siblings of the current one |
+| `heroiclands-project-roots` | `nil` | Where to look for projects; nil = no discovered projects |
 | `heroiclands-project-search-depth` | `3` | How far below a root to search |
 | `heroiclands-index-projects` | `all` | Foreign projects for Eglot and local link resolution |
 | `heroiclands-highlight-check-targets` | `t` | Mark links the index says are dead |

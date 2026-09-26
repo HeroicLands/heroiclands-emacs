@@ -163,13 +163,17 @@ sources — and those are the same project, not more of them."
   "Every git checkout among the searched roots.
 
 Kept for the commands that want checkouts rather than content projects;
-`heroiclands-projects' is the narrower list."
+`heroiclands-projects' is the narrower list.  Each configured root can be
+a checkout itself or a directory containing checkouts."
   (let (repos)
     (dolist (root heroiclands-project-roots)
-      (dolist (d (ignore-errors
-                   (directory-files (expand-file-name root) t "\\`[^.]" t)))
-        (when (and (file-directory-p d) (heroiclands--repo-p d))
-          (push (file-name-as-directory d) repos))))
+      (let ((directory (expand-file-name root)))
+        (if (heroiclands--repo-p directory)
+            (push (file-name-as-directory directory) repos)
+          (dolist (child (ignore-errors
+                           (directory-files directory t "\\`[^.]" t)))
+            (when (and (file-directory-p child) (heroiclands--repo-p child))
+              (push (file-name-as-directory child) repos))))))
     (nreverse (delete-dups repos))))
 
 (defun heroiclands-project-p (dir)
@@ -284,12 +288,20 @@ The result is cached; REFRESH, or \\[heroiclands-refresh-projects], recomputes i
 
 ;;;###autoload
 (defun heroiclands-switch-project ()
-  "Jump to a repository in the constellation."
+  "Jump to a repository in the constellation.
+
+See Info node `(heroiclands)The Constellation'."
   (interactive)
   (let* ((repos (heroiclands--git-repos))
-         (names (mapcar #'file-name-nondirectory repos))
+         (names (mapcar (lambda (repo)
+                          (file-name-nondirectory (directory-file-name repo)))
+                        repos))
          (pick  (completing-read "Repo: " names nil t))
-         (dir   (seq-find (lambda (d) (equal (file-name-nondirectory d) pick)) repos)))
+         (dir   (seq-find (lambda (repo)
+                            (equal (file-name-nondirectory
+                                    (directory-file-name repo))
+                                   pick))
+                          repos)))
     (project-switch-project dir)))
 
 ;;;; --------------------------------------------------------------- search
