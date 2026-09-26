@@ -3,6 +3,6 @@
   "private": true,
   "version": "0.0.0",
   "dependencies": {
-    "@heroiclands/content-language-server": "0.1.0"
+    "@heroiclands/content-language-server": "0.1.1"
   }
 }

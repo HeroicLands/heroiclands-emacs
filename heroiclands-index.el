@@ -39,7 +39,7 @@ form `<package>-<type>-<shortcode>' — `sohl-being-aurochs' cited from a
 `thalorna' note.  Resolving one means holding that package's index too, so
 this says which to load:
 
-  `all'   every project `heroiclands-projects' finds that has one built.
+  `all'   every project `heroiclands-projects' finds.
   LIST    projects, named or located.  An entry containing a slash is a
           path.  Anything else is matched against the project\'s **package
           name** first and its directory name second, so \"thalorna\"
@@ -54,10 +54,13 @@ this says which to load:
 link is indistinguishable from a wrong one, so a package left out of the
 list would have its links reported broken rather than unknown.
 
-Only projects with a complete private index contribute.  Reading an index
-does not build it.  The server refreshes the current project at startup
-and after saves; \\[heroiclands-index-rebuild] refreshes it on demand."
-  :type '(choice (const :tag "Every project that has one" all)
+Eglot passes selected roots to the language server, which builds missing
+foreign indexes on first use.  Emacs link completion and highlighting read
+only complete private indexes; reading does not build them.  The server
+refreshes the current project at startup and after saves;
+\\[heroiclands-index-rebuild] refreshes it on demand.  Restart Eglot after
+changing this setting in an open content project."
+  :type '(choice (const :tag "Every discovered project" all)
                  (repeat :tag "Named projects" string)
                  (const :tag "This project only" nil))
   :group 'heroiclands-index)
@@ -76,6 +79,41 @@ and after saves; \\[heroiclands-index-rebuild] refreshes it on demand."
   "The validated private index of the project at ROOT, or nil when absent."
   (heroiclands-server-index-file (or root (heroiclands-index--root))))
 
+(defun heroiclands-index-project-roots (&optional root)
+  "Foreign project roots selected for the content project at ROOT.
+
+Resolve `heroiclands-index-projects' without requiring an existing index.
+The language server can build a selected project's private index when needed."
+  (let* ((root (or root (heroiclands-index--root)))
+         (projects (heroiclands-projects))
+         (selected
+          (cond
+           ((eq heroiclands-index-projects 'all) projects)
+           ((listp heroiclands-index-projects)
+            (delq nil
+                  (mapcar
+                   (lambda (name)
+                     (if (string-search "/" name)
+                         (let ((path (expand-file-name name root)))
+                           (and (file-directory-p path) path))
+                       (or (seq-find
+                            (lambda (project)
+                              (equal (downcase name)
+                                     (downcase (or (heroiclands-project-package
+                                                    project) ""))))
+                            projects)
+                           (seq-find
+                            (lambda (project)
+                              (equal name (file-name-nondirectory
+                                           (directory-file-name project))))
+                            projects))))
+                   heroiclands-index-projects)))
+           (t nil)))
+         (own (file-truename root)))
+    (delete-dups
+     (seq-remove (lambda (project) (equal project own))
+                 (mapcar #'file-truename selected)))))
+
 (defun heroiclands-index-files (&optional root)
   "Every content index to resolve wikilinks against, from the project at ROOT.
 
@@ -87,33 +125,9 @@ unaffected by the order.
 Projects named in `heroiclands-index-projects' without a complete private
 index contribute nothing; this read never rebuilds a foreign project."
   (let* ((root (or root (heroiclands-index--root)))
-         (own (heroiclands-index-file root))
-         (others
-          (cond
-           ((eq heroiclands-index-projects 'all)
-            (seq-remove (lambda (d) (file-equal-p d root)) (heroiclands-projects)))
-           ((listp heroiclands-index-projects)
-            ;; A name selects a project wherever it is; a path names one
-            ;; directly. Neither assumes a layout.
-            (seq-filter
-             #'identity
-             (mapcar
-              (lambda (n)
-                (if (string-search "/" n)
-                    (and (file-directory-p (expand-file-name n)) (expand-file-name n))
-                  ;; Package name first: that is the name a wikilink uses,
-                  ;; and the one anyone would think to write.
-                  (or (seq-find (lambda (p)
-                                  (equal (downcase n)
-                                         (downcase (or (heroiclands-project-package p) ""))))
-                                (heroiclands-projects))
-                      (seq-find (lambda (p)
-                                  (equal n (file-name-nondirectory
-                                            (directory-file-name p))))
-                                (heroiclands-projects)))))
-              heroiclands-index-projects)))
-           (t nil))))
-    (append (delq nil (mapcar #'heroiclands-index-file others))
+         (own (heroiclands-index-file root)))
+    (append (delq nil (mapcar #'heroiclands-index-file
+                             (heroiclands-index-project-roots root)))
             (and own (list own)))))
 
 ;;;###autoload

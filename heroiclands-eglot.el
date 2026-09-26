@@ -11,6 +11,7 @@
 ;;; Code:
 
 (require 'heroiclands)
+(require 'heroiclands-index)
 (require 'heroiclands-server)
 (require 'eglot)
 
@@ -43,11 +44,16 @@ See Info node `(heroiclands)Content Language Server'."
          (file-in-directory-p buffer-file-name content))))
 
 (defun heroiclands-eglot--contact (&rest _args)
-  "Return the language-server command for this content project."
+  "Return the language-server command and selected foreign project roots."
   (unless (heroiclands-eglot--content-buffer-p)
     (user-error "Not in a HeroicLands content note"))
-  (or heroiclands-eglot-server-command
-      (list (heroiclands-server-require-executable))))
+  (let ((root (heroiclands--project-root)))
+    (append (or heroiclands-eglot-server-command
+                (list (heroiclands-server-require-executable)))
+            (list :initializationOptions
+                  (lambda (_server)
+                    (list :foreignRoots
+                          (vconcat (heroiclands-index-project-roots root))))))))
 
 (defun heroiclands-eglot--maybe-start ()
   "Start Eglot in a HeroicLands content note."

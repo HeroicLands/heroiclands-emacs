@@ -44,7 +44,8 @@
          (content (expand-file-name "assets/content" root))
          (binary (expand-file-name
                   "editor/node_modules/.bin/heroiclands-content-language-server" root))
-         (heroiclands-server-directory (expand-file-name "editor" root)))
+         (heroiclands-server-directory (expand-file-name "editor" root))
+         (heroiclands-index-projects nil))
     (unwind-protect
         (progn
           (make-directory content t)
@@ -60,7 +61,52 @@
                        (lambda () root))
                       ((symbol-function 'heroiclands-project-p)
                        (lambda (_directory) t)))
-              (should (equal (heroiclands-eglot--contact) (list binary))))))
+              (let ((contact (heroiclands-eglot--contact)))
+                (should (equal (car contact) binary))
+                (should (equal (funcall (plist-get (cdr contact)
+                                                  :initializationOptions)
+                                        nil)
+                               '(:foreignRoots [])))))))
       (delete-directory root t))))
+
+(ert-deftest heroiclands-eglot-selects-foreign-roots-without-an-index ()
+  (let* ((directory (make-temp-file "heroiclands-eglot-projects-" t))
+         (root (expand-file-name "local" directory))
+         (foreign (expand-file-name "renamed-project" directory))
+         (other (expand-file-name "other-project" directory))
+         (content (expand-file-name "assets/content" root))
+         (heroiclands-eglot-server-command '("server")))
+    (unwind-protect
+        (progn
+          (mapc (lambda (path) (make-directory path t))
+                (list content foreign other))
+          (with-temp-buffer
+            (markdown-mode)
+            (setq buffer-file-name (expand-file-name "Guide.md" content)
+                  default-directory root
+                  heroiclands-mode t)
+            (cl-letf (((symbol-function 'heroiclands--project-root)
+                       (lambda () root))
+                      ((symbol-function 'heroiclands-project-p)
+                       (lambda (_directory) t))
+                      ((symbol-function 'heroiclands-projects)
+                       (lambda (&optional _refresh) (list root foreign other)))
+                      ((symbol-function 'heroiclands-project-package)
+                       (lambda (project)
+                         (cond ((equal project foreign) "thalorna")
+                               ((equal project other) "kethira")))))
+              (dolist (case `((all ,foreign ,other)
+                              (("thalorna") ,foreign)
+                              ((,foreign) ,foreign)
+                              (nil)))
+                (let* ((heroiclands-index-projects (car case))
+                       (contact (heroiclands-eglot--contact))
+                       (options (funcall (plist-get (cdr contact)
+                                                    :initializationOptions)
+                                         nil)))
+                  (should (equal (car contact) "server"))
+                  (should (equal (append (plist-get options :foreignRoots) nil)
+                                 (mapcar #'file-truename (cdr case)))))))))
+      (delete-directory directory t))))
 
 ;;; heroiclands-eglot-test.el ends here
