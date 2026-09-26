@@ -124,15 +124,15 @@ purpose: jumping between repositories and grepping across all of them are
 things you do from anywhere, including from a buffer belonging to no
 project at all.
 
-@section What the marker decides, and what the index decides
+@section What the frontmatter decides, and what the index decides
 
 @cindex index, and what depends on it
 
 Two different things gate this package, and it is worth keeping them
 apart.
 
-The @strong{project marker} decides that the mode is @emph{relevant}:
-this is a content tree, so these commands mean something here.
+The @strong{frontmatter} identifies a content note wherever the file is
+saved, so the mode is relevant there.
 
 The @strong{content index} decides which capabilities are @emph{live}.
 Everything about wikilinks reads it, and without one they have nothing to
@@ -172,14 +172,25 @@ reopening anything.
 @section It usually turns itself on
 
 @code{global-heroiclands-mode} enables it in a buffer that is visiting a
-file, in @code{markdown-mode} or @code{gfm-mode}, and inside a directory
-tree holding a package-build configuration.
+file, in @code{markdown-mode} or @code{gfm-mode}, whose opening YAML
+frontmatter has nonempty top-level @code{type} and @code{shortcode} values.
+The file's directory does not decide whether the mode turns on.
+
+@example
+---
+type: lore
+shortcode: movednote
+---
+@end example
+
+A README beside content notes remains ordinary Markdown unless it declares
+both fields.  Eglot also needs a configured content project so the server can
+build its index.
 
 @vindex heroiclands-markers
 
-That last test walks up from the file looking for any of the three names
-package-build itself resolves, which is what @code{heroiclands-markers}
-holds:
+The server reads the project configuration named by
+@code{heroiclands-markers}:
 
 @verbatim
 package-build.config.yaml
@@ -188,13 +199,9 @@ package-build.config.mjs
 @end verbatim
 
 @noindent
-Any one is enough.  The @file{.mjs} form is package-build's escape hatch
-for a consumer that computes its configuration rather than declaring it;
-two of them in one directory is an error, but that is package-build's
-error to report rather than this package's to guess at.
-
-That is the whole test, so a note in a new repository is covered the day
-the repository exists.
+The server indexes the content path declared there.  A note outside that
+path still gets @code{heroiclands-mode}; server navigation reads the
+configured index.
 
 @example
 (global-heroiclands-mode 1)
@@ -561,8 +568,8 @@ Use @kbd{C-c h i} when a result looks stale or a rebuild fails.
 @section Navigating through Eglot
 
 Load @code{heroiclands-eglot} alongside the other optional HeroicLands
-features.  In a Markdown note beneath the project's content tree, the
-mode starts the pinned content language server.
+features.  In a recognized Markdown note within a configured content
+project, the mode starts the pinned content language server.
 
 @kbd{M-.} follows the Address or wikilink at point.  @kbd{C-M-.}
 searches names, aliases, ASCII spellings, shortcodes, and Addresses in
@@ -584,8 +591,8 @@ current project.  An explicit path can select a project outside the
 discovery roots.  Restart Eglot in an open content project after changing
 the selection.
 
-Loading this feature leaves Markdown outside the content tree with its
-normal Eglot configuration.  The @kbd{C-c h .} and @kbd{C-c h ,}
+Loading this feature leaves ordinary Markdown with its normal Eglot
+configuration.  The @kbd{C-c h .} and @kbd{C-c h ,}
 commands remain available.
 
 @node Writing Wikilinks
@@ -1068,11 +1075,11 @@ Completion tells you which, by whether it can offer it.
 Anchors come from the index too.  Rebuild.
 
 @item Everything is silent in this buffer
-The content machinery only runs in a markdown buffer visiting a file
-inside a project carrying a package-build configuration.  Check the
-@samp{HL} lighter; if it is absent, @kbd{M-x heroiclands-mode} turns it on
-regardless, and @kbd{C-h v heroiclands-markers} shows which file names
-count.
+The content machinery runs in a Markdown file whose opening YAML
+frontmatter declares both @code{type} and @code{shortcode}.  Check the
+@samp{HL} lighter; if it is absent, @kbd{M-x heroiclands-mode} turns it
+on explicitly.  Eglot also needs a configured content project and an
+installed server.
 
 @item A helper I just wrote does not complete
 @kbd{C-c h R} rescans the sources.

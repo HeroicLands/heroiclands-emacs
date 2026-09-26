@@ -7,11 +7,11 @@
 
 (define-derived-mode markdown-mode text-mode "Markdown")
 
-(ert-deftest heroiclands-eglot-starts-only-in-content-notes ()
+(ert-deftest heroiclands-eglot-starts-only-in-recognized-notes ()
   (let* ((root (make-temp-file "heroiclands-eglot-" t))
          (content (expand-file-name "assets/content" root))
-         (inside (expand-file-name "Guide.md" content))
-         (outside (expand-file-name "README.md" root))
+         (inside (expand-file-name "README.md" content))
+         (outside (expand-file-name "Guide.md" root))
          (started 0))
     (unwind-protect
         (progn
@@ -19,6 +19,9 @@
           (dolist (file (list inside outside))
             (with-temp-buffer
               (markdown-mode)
+              (insert (if (equal file outside)
+                          "---\ntype: lore\nshortcode: moved\n---\n"
+                        "# README\n"))
               (setq buffer-file-name file
                     default-directory root
                     heroiclands-mode t)
@@ -29,13 +32,13 @@
                         ((symbol-function 'eglot-ensure)
                          (lambda () (cl-incf started))))
                 (heroiclands-eglot--maybe-start)
-                (if (equal file inside)
+                (if (equal file outside)
                     (progn
                       (should (= started 1))
                       (should (local-variable-p 'eglot-server-programs))
                       (should (eq (cdar eglot-server-programs)
                                   'heroiclands-eglot--contact)))
-                  (should (= started 1))
+                  (should (= started 0))
                   (should-not (local-variable-p 'eglot-server-programs)))))))
       (delete-directory root t))))
 
@@ -54,6 +57,7 @@
           (set-file-modes binary #o755)
           (with-temp-buffer
             (markdown-mode)
+            (insert "---\ntype: lore\nshortcode: guide\n---\n")
             (setq buffer-file-name (expand-file-name "Guide.md" content)
                   default-directory root
                   heroiclands-mode t)
@@ -82,6 +86,7 @@
                 (list content foreign other))
           (with-temp-buffer
             (markdown-mode)
+            (insert "---\ntype: lore\nshortcode: guide\n---\n")
             (setq buffer-file-name (expand-file-name "Guide.md" content)
                   default-directory root
                   heroiclands-mode t)
