@@ -70,7 +70,7 @@ compile buffer whose diagnostics are clickable.
 - [`@heroiclands/package-build`](https://github.com/HeroicLands/package-build)
   in the project, for `content-build content-index` and the table expander
 - `node` and `jq` on `PATH`
-- `rg` on `PATH` for Eglot reference search
+- `rg` on `PATH` for `C-c h g` cross-project text search
 - `makeinfo` to build the manual
 
 The content features activate in a markdown buffer inside a project carrying

@@ -529,7 +529,8 @@ the current project; @code{tag:myth} searches tags.  @kbd{M-?} finds
 authored wikilinks and frontmatter Address references.  @kbd{M-,}
 returns to the previous location.  Search and destinations use the
 saved index, so unsaved metadata edits do not add search results.
-References require @command{rg} on @env{PATH}.
+Reference search scans the project's Markdown notes without an external
+search command.
 
 Loading this feature leaves Markdown outside the content tree with its
 normal Eglot configuration.  The @kbd{C-c h .} and @kbd{C-c h ,}
