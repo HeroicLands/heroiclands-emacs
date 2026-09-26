@@ -715,7 +715,9 @@ the rewriting off entirely.
 
 @kbd{C-c h .} on a wikilink opens the note it names.  If the link names
 an anchor, it lands on that heading's line rather than at the top of the
-file.
+file.  A package-qualified link opens under the owning project's content
+tree when its private index is available.  The link's relative file path
+is resolved against that project's configured content directory.
 
 @kbd{C-c h ,} comes back.  It uses the same marker stack as @kbd{M-.} and
 @kbd{M-,}, so the two compose.

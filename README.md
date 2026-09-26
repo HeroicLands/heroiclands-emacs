@@ -33,7 +33,9 @@ Anything that is not exactly one note is an error raised where you typed it —
 unknown note, ambiguous name, or an anchor the note does not declare — rather
 than a broken link that surfaces in a build days later.
 
-`C-c h .` follows a link, landing on the anchor's line. `C-c h ,` comes back.
+`C-c h .` follows a link, landing on the anchor's line. A package-qualified
+link opens the note under its owning project's content tree when that
+project's private index is available. `C-c h ,` comes back.
 
 **Wikilinks you can see.** Each part of `[[address#anchor|display]]` is
 coloured by what it is — the address strongest, since it has to be exactly
