@@ -175,7 +175,7 @@ ANCHOR nil when the link names none."
   "Open the note the wikilink at point names, at its anchor when it has one.
 
 Resolves through the content index, so it is a lookup rather than a search.
-Rebuild the index with \\[heroiclands-index-rebuild] if a note is missing.
+Refresh the index with \\[heroiclands-index-rebuild] if a note is missing.
 
 A link naming an unknown note, or an anchor the note does not declare, says
 so and lists the anchors that do exist.

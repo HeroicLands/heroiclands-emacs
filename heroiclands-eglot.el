@@ -11,6 +11,7 @@
 ;;; Code:
 
 (require 'heroiclands)
+(require 'heroiclands-server)
 (require 'eglot)
 
 (defgroup heroiclands-eglot nil
@@ -20,10 +21,10 @@
 (defcustom heroiclands-eglot-server-command nil
   "Command that starts the content language server.
 
-Nil uses this project's installed
-`node_modules/.bin/heroiclands-content-language-server'.  A list of strings
-overrides that command, for instance when developing a server checkout."
-  :type '(choice (const :tag "Project-installed server" nil)
+Nil uses the exact server installed under `heroiclands-server-directory'.
+A list of strings overrides that command for server development.
+See Info node `(heroiclands)Content Language Server'."
+  :type '(choice (const :tag "Pinned installed server" nil)
                  (repeat string))
   :group 'heroiclands-eglot)
 
@@ -45,15 +46,8 @@ overrides that command, for instance when developing a server checkout."
   "Return the language-server command for this content project."
   (unless (heroiclands-eglot--content-buffer-p)
     (user-error "Not in a HeroicLands content note"))
-  (let* ((root (heroiclands--project-root))
-         (binary (expand-file-name
-                  "node_modules/.bin/heroiclands-content-language-server"
-                  root)))
-    (or heroiclands-eglot-server-command
-        (if (file-executable-p binary)
-            (list binary)
-          (user-error "No content language server at %s; run npm ci in this project"
-                      binary)))))
+  (or heroiclands-eglot-server-command
+      (list (heroiclands-server-require-executable))))
 
 (defun heroiclands-eglot--maybe-start ()
   "Start Eglot in a HeroicLands content note."
