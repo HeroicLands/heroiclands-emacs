@@ -89,8 +89,8 @@ below documents itself in @kbd{C-h f}, and this manual is @kbd{C-c h ?}.
 @item @kbd{C-c h R} @tab Rescan the helper sources.
 @item @kbd{C-c h ?} @tab This manual.
 @item @kbd{M-.} @tab Follow an Address or wikilink with Eglot.
-@item @kbd{C-M-.} @tab Search this project's indexed notes with Eglot.
-@item @kbd{M-?} @tab Find authored references with Eglot.
+@item @kbd{C-M-.} @tab Search indexed notes; prefix with @code{all:} for selected foreign projects.
+@item @kbd{M-?} @tab Find authored references across selected projects.
 @item @kbd{M-,} @tab Return through Xref history.
 @end multitable
 
@@ -496,9 +496,10 @@ notes under a content project's tree.  Other Markdown buffers retain
 their normal Eglot setup.  @code{heroiclands-eglot-server-command} accepts
 an explicit command list when developing the server.  Leave it nil for
 the pinned installation.  @kbd{M-.} follows an Address or wikilink,
-@kbd{C-M-.} searches indexed names and tags in the current project,
-@kbd{M-?} lists authored references, and @kbd{M-,} returns through
-Xref history.  Unsaved metadata edits do not enter search results.
+@kbd{C-M-.} searches indexed names and tags in the current project;
+@code{all:} includes selected foreign projects.  @kbd{M-?} lists
+authored references across those projects, and @kbd{M-,} returns
+through Xref history.  Unsaved metadata edits do not enter search results.
 
 @node The Content Index
 @chapter The Content Index
@@ -550,10 +551,11 @@ against it or committed.
 It is also @strong{byte-stable}: rebuilding over an unchanged tree
 produces an identical file.  A rebuild is never noise.
 
-The server rebuilds at startup and after saves.  Emacs notices a complete
-private index publication and refreshes open buffers.  A foreign project
-contributes records only when its configured root has a complete private
-index.  Reading it does not start a build in every configured project.
+The server rebuilds the current project at startup and after saves.  Emacs
+notices a complete private index publication and refreshes open buffers.
+An Eglot foreign search, definition, or reference builds missing foreign
+indexes on demand.  Emacs link completion and highlighting read only
+complete indexes and do not start foreign builds.
 Use @kbd{C-c h i} when a result looks stale or a rebuild fails.
 
 @section Navigating through Eglot
@@ -564,12 +566,23 @@ mode starts the pinned content language server.
 
 @kbd{M-.} follows the Address or wikilink at point.  @kbd{C-M-.}
 searches names, aliases, ASCII spellings, shortcodes, and Addresses in
-the current project; @code{tag:myth} searches tags.  @kbd{M-?} finds
-authored wikilinks and frontmatter Address references.  @kbd{M-,}
-returns to the previous location.  Search and destinations use the
-saved index, so unsaved metadata edits do not add search results.
-Reference search scans the project's Markdown notes without an external
-search command.
+the current project; @code{tag:myth} searches tags.  Prefix the query
+with @code{all:} to include foreign projects selected by
+@code{heroiclands-index-projects}; @code{all:tag:myth} searches their
+tags.  Results identify the owning package and open its source note.
+@kbd{M-.} follows a package-qualified Address into its owning project.
+@kbd{M-?} finds authored wikilinks and frontmatter Address references
+in the current and selected foreign projects.  @kbd{M-,} returns to the
+previous location.  Search and destinations use saved indexes, so unsaved
+metadata edits do not add search results.  Reference search reads saved
+Markdown source for exact body-link locations.
+
+Set @code{heroiclands-project-roots} to the directories containing the
+projects to discover.  @code{heroiclands-index-projects} accepts
+@code{all}, a list of package names or paths, or @code{nil} for only the
+current project.  An explicit path can select a project outside the
+discovery roots.  Restart Eglot in an open content project after changing
+the selection.
 
 Loading this feature leaves Markdown outside the content tree with its
 normal Eglot configuration.  The @kbd{C-c h .} and @kbd{C-c h ,}
@@ -775,8 +788,10 @@ A wikilink may name a note in another package by its canonical
 @code{<package>-<type>-<shortcode>} address --- @code{sohl-being-aurochs}
 cited from a @code{thalorna} note.  Resolving one means holding that
 package's index too, so @code{heroiclands-index-projects} says which to
-read; it defaults to every project under @code{heroiclands-root} that has
-an index built.
+read; it defaults to every project found under
+@code{heroiclands-project-roots}.  The language server builds a selected
+foreign project's index when Eglot navigation needs it.  Emacs link
+completion and highlighting use its index when a complete one exists.
 
 A target whose package is @emph{not} loaded is never marked broken.  Only
 a bare local slug, or a canonical address in a package actually held, can
