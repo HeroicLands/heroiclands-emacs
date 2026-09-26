@@ -53,6 +53,13 @@ a preview cannot disagree with what ships. The buffer is never modified.
 filter over it. Each record is a note's own frontmatter, so a query reads
 exactly what the note writes.
 
+**Project navigation through Eglot.** Load `heroiclands-eglot` to start the
+project-installed content language server in content notes. `M-.` follows an
+Address or wikilink, `C-M-.` searches the current project's names, aliases,
+shortcodes, Addresses, and tags (`tag:myth`), `M-?` lists authored references,
+and `M-,` returns. Search reads the saved JSONL index; `C-c h i` refreshes it.
+The existing `C-c h .` and `C-c h ,` commands remain available.
+
 **The constellation.** `C-c h g` ripgreps every repository at once; `C-c h h`
 jumps between them; `C-c h c/b/t/l` run the project's npm scripts into a
 compile buffer whose diagnostics are clickable.
@@ -63,6 +70,7 @@ compile buffer whose diagnostics are clickable.
 - [`@heroiclands/package-build`](https://github.com/HeroicLands/package-build)
   in the project, for `content-build content-index` and the table expander
 - `node` and `jq` on `PATH`
+- `rg` on `PATH` for Eglot reference search
 - `makeinfo` to build the manual
 
 The content features activate in a markdown buffer inside a project carrying
@@ -92,6 +100,7 @@ line is what actually turns the mode on:
 (require 'heroiclands-highlight)  ; colouring, and marking dead links
 (require 'heroiclands-dataview)   ; content-table previews
 (require 'heroiclands-hbs)        ; Handlebars helper completion
+(require 'heroiclands-eglot)      ; Xref navigation through Eglot
 
 ;; Where your content repositories live. Either a directory holding them,
 ;; or the projects themselves, or a mixture — see below.
@@ -116,6 +125,7 @@ With `use-package` and a VC recipe (Emacs 29+):
   (require 'heroiclands-highlight)
   (require 'heroiclands-dataview)
   (require 'heroiclands-hbs)
+  (require 'heroiclands-eglot)
   (setq heroiclands-project-roots '("~/dev/github"))
   (global-heroiclands-mode 1))
 ```

@@ -87,6 +87,10 @@ below documents itself in @kbd{C-h f}, and this manual is @kbd{C-c h ?}.
 @item @kbd{C-c h H} @tab Describe a Handlebars helper.
 @item @kbd{C-c h R} @tab Rescan the helper sources.
 @item @kbd{C-c h ?} @tab This manual.
+@item @kbd{M-.} @tab Follow an Address or wikilink with Eglot.
+@item @kbd{C-M-.} @tab Search this project's indexed notes with Eglot.
+@item @kbd{M-?} @tab Find authored references with Eglot.
+@item @kbd{M-,} @tab Return through Xref history.
 @end multitable
 
 @noindent
@@ -477,7 +481,7 @@ re-deriving it.
 It is one JSON object per line, in JSON Lines:
 
 @verbatim
-build/content-index/<package>.jsonl
+build/content-index/<package>-metadata.jsonl
 @end verbatim
 
 @section Rebuilding it
@@ -489,7 +493,7 @@ build/content-index/<package>.jsonl
 reports what it wrote:
 
 @verbatim
-sohl -> build/content-index/sohl.jsonl (1606 notes, 1806 KiB)
+sohl -> build/content-index/sohl-metadata.jsonl
 @end verbatim
 
 It runs @command{npx content-build content-index} from the project root.
@@ -499,17 +503,37 @@ The same command works in any terminal.
 
 The index is @strong{derived and disposable}.  It lives under
 @file{build/}, is gitignored, and nothing may be authored against it.
-Rebuilding costs a frontmatter parse rather than a build — under a second
-over sixteen hundred notes — which is why it is a command of its own and
-why it need never be committed.
+Rebuilding costs a frontmatter parse rather than a full build.  The
+index is a generated artifact and need not be committed.
 
 It is also @strong{byte-stable}: rebuilding over an unchanged tree
 produces an identical file.  A rebuild is never noise.
 
 @strong{Nothing rebuilds it automatically.}  A note added since the last
 rebuild is invisible to completion, to link following, and to
-normalization, all of which read the index rather than the tree.  If
+normalization, and Eglot search, all of which read the index rather than the tree.  If
 something you know exists cannot be found, rebuild first.
+
+@section Navigating through Eglot
+
+Load @code{heroiclands-eglot} alongside the other optional HeroicLands
+features.  In a Markdown note beneath the project's content tree, the
+mode starts the project's installed content language server.  Run
+@command{npm ci} in that project to install its declared version of
+@code{@@heroiclands/package-build}, and build the index with
+@kbd{C-c h i}.
+
+@kbd{M-.} follows the Address or wikilink at point.  @kbd{C-M-.}
+searches names, aliases, ASCII spellings, shortcodes, and Addresses in
+the current project; @code{tag:myth} searches tags.  @kbd{M-?} finds
+authored wikilinks and frontmatter Address references.  @kbd{M-,}
+returns to the previous location.  Search and destinations use the
+saved index, so unsaved metadata edits do not add search results.
+References require @command{rg} on @env{PATH}.
+
+Loading this feature leaves Markdown outside the content tree with its
+normal Eglot configuration.  The @kbd{C-c h .} and @kbd{C-c h ,}
+commands remain available.
 
 @node Writing Wikilinks
 @chapter Writing Wikilinks

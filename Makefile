@@ -4,7 +4,8 @@ EMACS ?= emacs
 MAKEINFO ?= makeinfo
 
 LISP := heroiclands.el heroiclands-hbs.el heroiclands-dataview.el \
-        heroiclands-index.el heroiclands-goto.el heroiclands-highlight.el
+        heroiclands-index.el heroiclands-goto.el heroiclands-highlight.el \
+        heroiclands-eglot.el
 
 .PHONY: all info compile check hooks clean
 
@@ -35,7 +36,8 @@ compile:
 ## quoted argument is passed through to Emacs by some makes, which then reads a
 ## bare backslash as a variable and fails with `void-variable \'.
 check:
-	$(EMACS) -Q --batch -L . --eval '(mapc (lambda (f) (require (intern f))) (list "heroiclands" "heroiclands-hbs" "heroiclands-dataview" "heroiclands-index" "heroiclands-goto" "heroiclands-highlight"))' --eval '(message "all features load")'
+	$(EMACS) -Q --batch -L . --eval '(mapc (lambda (f) (require (intern f))) (list "heroiclands" "heroiclands-hbs" "heroiclands-dataview" "heroiclands-index" "heroiclands-goto" "heroiclands-highlight" "heroiclands-eglot"))' --eval '(message "all features load")'
+	$(EMACS) -Q --batch -L . -l tests/heroiclands-eglot-test.el -f ert-run-tests-batch-and-exit
 
 ## Activate the committed git hooks for this checkout.
 ##
