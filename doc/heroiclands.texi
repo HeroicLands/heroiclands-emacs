@@ -362,6 +362,7 @@ carrying a package-build configuration --- @file{package-build.config.yaml},
 @vindex heroiclands-project-roots
 @vindex heroiclands-project-search-depth
 @findex heroiclands-refresh-projects
+@findex heroiclands-switch-project
 
 @code{heroiclands-project-roots} says where to look.  Each entry is
 searched like this:
@@ -377,6 +378,10 @@ Stopping at a project is the important half.  A checkout inside a
 checkout --- a worktree under @file{.claude/worktrees/}, a vendored
 source --- is the @emph{same} project, not another one, and descending
 would find the same package twice.
+
+@kbd{C-c h h} includes a root that is itself a git checkout and checkouts
+immediately inside a directory root.  Content project discovery also
+searches subdirectories to @code{heroiclands-project-search-depth}.
 
 So a root may be a directory holding repositories, or a project itself, or
 any mixture of the two:
