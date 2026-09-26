@@ -79,8 +79,9 @@ compile buffer whose diagnostics are clickable.
 - `rg` on `PATH` for `C-c h g` cross-project text search
 - `makeinfo` to build the manual
 
-The content features activate in a markdown buffer inside a project carrying
-`package-build.config.yaml`; everything else is inert elsewhere.
+The content features activate in Markdown files whose opening YAML frontmatter
+has top-level `type` and `shortcode` values. Eglot also needs a content project
+configuration to build its index.
 
 ## Install
 
@@ -194,11 +195,11 @@ is no archive package to install — and `:demand t` if it sets
 `global-heroiclands-mode` has to be on before the first content note is
 opened, and a deferred `:config` never runs.
 
-### What the marker decides, and what the index decides
+### What the frontmatter decides, and what the index decides
 
 Two different things gate this package.
 
-The **project marker** decides the mode is *relevant* — this is a content tree.
+The **frontmatter** identifies a content note, wherever the file is saved.
 The **content index** decides which capabilities are *live*:
 
 | Needs the index | Works without it |
@@ -231,10 +232,22 @@ three of:
 
 1. visiting a file (not a scratch buffer),
 2. in `markdown-mode` or `gfm-mode`, and
-3. inside a directory tree containing a **package-build configuration**.
+3. starting with YAML frontmatter containing nonempty, top-level `type` and
+   `shortcode` values.
 
-That third test walks up from the file looking for any of the three names
-package-build itself resolves — `heroiclands-markers`:
+For example:
+
+```yaml
+---
+type: lore
+shortcode: movednote
+---
+```
+
+The check reads the file, not its directory. A README beside content notes stays
+ordinary Markdown unless it declares both fields. Eglot starts only when the
+note also belongs to a content project carrying one of these configuration
+files, which the server uses to build its index:
 
 ```
 package-build.config.yaml
@@ -242,13 +255,9 @@ package-build.config.yml
 package-build.config.mjs
 ```
 
-Any one is enough. (`.mjs` is package-build's escape hatch for a consumer that
-computes its configuration rather than declaring it. Two of them in one
-directory is an error, but that is package-build's error to report — this
-package just needs to recognise a project.)
-
-So a note in a new repository is covered the day the repository exists, and
-nothing needs marking.
+The server indexes the content path declared by that configuration. A note
+outside that path still gets `heroiclands-mode`, while server navigation uses
+the configured index.
 
 The `HL` lighter in the mode line says when it is on; `C-h m` describes it.
 

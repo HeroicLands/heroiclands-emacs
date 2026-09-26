@@ -505,10 +505,8 @@ a second.")
 (defun heroiclands--lighter ()
   "The mode-line lighter: \=` HL\=` normally, \=` HL?\=` with no index built.
 
-The distinction is worth a character because it is the difference between
-the mode working and half of it silently doing nothing.  The project marker
-decides that this package is *relevant* here; the index decides which of it
-is *live*, and only one of those is visible without being told."
+The frontmatter decides whether the mode turns on automatically.  The
+index decides which navigation features are available."
   (if heroiclands--index-present
       " HL"
     (propertize " HL?" 'help-echo
@@ -614,15 +612,36 @@ See Info node `(heroiclands)Top' for the manual."
 (dolist (form '((heroiclands-mode 1) (heroiclands-mode -1)))
   (add-to-list 'safe-local-eval-forms form))
 
-(defun heroiclands-mode-maybe-enable ()
-  "Turn on `heroiclands-mode' where it has something to do.
+(defun heroiclands--note-p ()
+  "Return non-nil when the opening YAML frontmatter identifies a note.
 
-That is: a markdown buffer visiting a file inside a project that carries
-any of `heroiclands-markers'."
+Both top-level `type' and `shortcode' must have values.  The check is
+independent of the file's directory and leaves point and narrowing alone."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (when (looking-at "---[ \t]*$")
+        (forward-line 1)
+        (let ((begin (point))
+              (end (when (re-search-forward "^---[ \t]*$" nil t)
+                     (match-beginning 0))))
+          (and end
+               (seq-every-p
+                (lambda (key)
+                  (goto-char begin)
+                  (when (re-search-forward
+                         (format "^%s:[ \t]*\\([^#\r\n]*\\)" key) end t)
+                    (let ((value (string-trim (match-string-no-properties 1))))
+                      (and (not (string-empty-p value))
+                           (not (member value '("\"\"" "''" "null" "~")))))))
+                '("type" "shortcode"))))))))
+
+(defun heroiclands-mode-maybe-enable ()
+  "Turn on `heroiclands-mode' in Markdown files identified by frontmatter."
   (when (and buffer-file-name
              (derived-mode-p 'markdown-mode 'gfm-mode)
-             (when-let* ((root (heroiclands--project-root)))
-               (heroiclands-project-p root)))
+             (heroiclands--note-p))
     (heroiclands-mode 1)))
 
 ;;;###autoload

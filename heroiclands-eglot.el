@@ -30,18 +30,12 @@ See Info node `(heroiclands)Content Language Server'."
   :group 'heroiclands-eglot)
 
 (defun heroiclands-eglot--content-buffer-p ()
-  "Whether this buffer visits a note in its HeroicLands content tree."
+  "Whether this buffer visits a note in a configured content project."
   (and heroiclands-mode
        buffer-file-name
        (derived-mode-p 'markdown-mode 'gfm-mode)
-       (when-let* ((root (heroiclands--project-root))
-                   ((heroiclands-project-p root))
-                   (content (expand-file-name
-                             (or (and (fboundp 'heroiclands-goto--content-dir)
-                                      (heroiclands-goto--content-dir root))
-                                 "assets/content")
-                             root)))
-         (file-in-directory-p buffer-file-name content))))
+       (heroiclands--note-p)
+       (heroiclands-project-p (heroiclands--project-root))))
 
 (defun heroiclands-eglot--contact (&rest _args)
   "Return the language-server command and selected foreign project roots."
