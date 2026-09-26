@@ -87,6 +87,7 @@ key, so a link resolves whichever form it was written in."
                 (puthash (downcase pkg) t packages)
                 (unless package (setq package pkg)))
               (when address
+                (setq record (plist-put record :owner-index file))
                 (puthash (plist-get address :slug) record table)
                 (puthash (plist-get address :canonical) record table)))))
         (forward-line 1)))
@@ -176,6 +177,7 @@ ANCHOR nil when the link names none."
 
 Resolves through the content index, so it is a lookup rather than a search.
 Refresh the index with \\[heroiclands-index-rebuild] if a note is missing.
+Package-qualified links open a note under its owning project's content tree.
 
 A link naming an unknown note, or an anchor the note does not declare, says
 so and lists the anchors that do exist.
@@ -187,20 +189,23 @@ See Info node `(heroiclands)Following a Link'."
          (target (car link))
          (anchor (cdr link))
          (root (heroiclands-index--root))
-         (files (or (heroiclands-index-files root)
+         (sources (or (heroiclands-index-sources root)
                     (user-error "No content index built — run %s first"
                                 (substitute-command-keys
                                  "\\[heroiclands-index-rebuild]"))))
+         (files (mapcar #'car sources))
          (record (gethash (heroiclands-goto--normalize target)
                           (heroiclands-goto--table files))))
     (unless record
-      (user-error "No note addressed `%s' in this package's index" target))
+      (user-error "No note addressed `%s' in the selected content indexes" target))
     (let* ((file (plist-get record :file))
+           (owner (or (cdr (assoc (plist-get record :owner-index) sources))
+                      (user-error "No project owns the index record for `%s'" target)))
            ;; The index stores a path relative to the content root, which is
            ;; the portable form; the absolute one is composed here.
            (content (expand-file-name
-                     (or (heroiclands-goto--content-dir root) "assets/content")
-                     root))
+                     (or (heroiclands-goto--content-dir owner) "assets/content")
+                     owner))
            (full (expand-file-name (plist-get file :path) content))
            (anchors (append (plist-get record :anchors) nil))
            (hit (and anchor

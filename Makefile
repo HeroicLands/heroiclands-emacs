@@ -38,6 +38,7 @@ compile:
 check:
 	$(EMACS) -Q --batch -L . --eval '(mapc (lambda (f) (require (intern f))) (list "heroiclands" "heroiclands-hbs" "heroiclands-dataview" "heroiclands-server" "heroiclands-index" "heroiclands-goto" "heroiclands-highlight" "heroiclands-eglot"))' --eval '(message "all features load")'
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-eglot-test.el -f ert-run-tests-batch-and-exit
+	$(EMACS) -Q --batch -L . -l tests/heroiclands-goto-test.el -f ert-run-tests-batch-and-exit
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-server-test.el -f ert-run-tests-batch-and-exit
 
 ## Activate the committed git hooks for this checkout.

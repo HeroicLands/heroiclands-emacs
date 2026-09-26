@@ -114,8 +114,8 @@ The language server can build a selected project's private index when needed."
      (seq-remove (lambda (project) (equal project own))
                  (mapcar #'file-truename selected)))))
 
-(defun heroiclands-index-files (&optional root)
-  "Every content index to resolve wikilinks against, from the project at ROOT.
+(defun heroiclands-index-sources (&optional root)
+  "Index files and their project roots for the content project at ROOT.
 
 This project's own index comes **last**, so that where two packages publish
 the same bare `type-shortcode' slug, the local note is the one a local link
@@ -126,9 +126,18 @@ Projects named in `heroiclands-index-projects' without a complete private
 index contribute nothing; this read never rebuilds a foreign project."
   (let* ((root (or root (heroiclands-index--root)))
          (own (heroiclands-index-file root)))
-    (append (delq nil (mapcar #'heroiclands-index-file
+    (append (delq nil (mapcar (lambda (project)
+                               (when-let* ((file (heroiclands-index-file project)))
+                                 (cons file project)))
                              (heroiclands-index-project-roots root)))
-            (and own (list own)))))
+            (and own (list (cons own root))))))
+
+(defun heroiclands-index-files (&optional root)
+  "Every content index selected for the content project at ROOT.
+
+The local index comes last.  Foreign projects without a complete private
+index contribute nothing; this read never rebuilds them."
+  (mapcar #'car (heroiclands-index-sources root)))
 
 ;;;###autoload
 (defun heroiclands-index-rebuild ()
