@@ -11,14 +11,8 @@
 ;; implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ;; See the LICENSE file for details.
 ;;
-;; Every content build walks the whole note tree and parses every note's
-;; frontmatter, then throws the result away.  `content-build content-index'
-;; publishes that walk instead: one JSON object per note, in JSON Lines, under
-;; the project's `paths.contentIndex' (`build/content-index/<package>.jsonl').
-;;
-;; The artifact is derived and disposable — regenerating it costs a frontmatter
-;; parse, not a build — so the intended way to use it is to rebuild it whenever
-;; it looks stale rather than to keep it current automatically.
+;; The pinned content language server owns an index outside the project build
+;; tree.  It refreshes the current project at startup and after saves.
 ;;
 ;;   C-c h i   rebuild this project's content index
 ;;   C-c h I   run a jq query against it
@@ -26,18 +20,12 @@
 ;;; Code:
 
 (require 'heroiclands)
+(require 'heroiclands-server)
 (require 'subr-x)
 
 (defgroup heroiclands-index nil
   "The published content index."
   :group 'heroiclands)
-
-(defcustom heroiclands-index-relative-dir "build/content-index"
-  "Where a project writes its content index, relative to its root.
-
-Mirrors `paths.contentIndex' in `package-build.config.yaml'; override it
-here only for a project that relocates the directory."
-  :type 'string :group 'heroiclands-index)
 
 (defcustom heroiclands-index-jq "jq"
   "The jq executable used by `heroiclands-index-query'."
@@ -66,9 +54,9 @@ this says which to load:
 link is indistinguishable from a wrong one, so a package left out of the
 list would have its links reported broken rather than unknown.
 
-Only projects with an index already built contribute.  Nothing is built as
-a side effect of reading — run \\[heroiclands-index-rebuild] in a project to
-add it."
+Only projects with a complete private index contribute.  Reading an index
+does not build it.  The server refreshes the current project at startup
+and after saves; \\[heroiclands-index-rebuild] refreshes it on demand."
   :type '(choice (const :tag "Every project that has one" all)
                  (repeat :tag "Named projects" string)
                  (const :tag "This project only" nil))
@@ -85,14 +73,8 @@ add it."
     root))
 
 (defun heroiclands-index-file (&optional root)
-  "The content index of the project at ROOT, or nil when none is built.
-
-There is exactly one per project — a configuration declares a single
-`contentPackage' — so the first `.jsonl' in the directory is it."
-  (let* ((root (or root (heroiclands-index--root)))
-         (dir (expand-file-name heroiclands-index-relative-dir root)))
-    (car (and (file-directory-p dir)
-              (directory-files dir t "\\.jsonl\\'" t)))))
+  "The validated private index of the project at ROOT, or nil when absent."
+  (heroiclands-server-index-file (or root (heroiclands-index--root))))
 
 (defun heroiclands-index-files (&optional root)
   "Every content index to resolve wikilinks against, from the project at ROOT.
@@ -102,9 +84,8 @@ the same bare `type-shortcode' slug, the local note is the one a local link
 means.  Canonical `<package>-<type>-<shortcode>' keys are unambiguous and so
 unaffected by the order.
 
-Projects named in `heroiclands-index-projects' that have no index built
-contribute nothing, silently: this is a read, and building someone else's
-index is not this command's business."
+Projects named in `heroiclands-index-projects' without a complete private
+index contribute nothing; this read never rebuilds a foreign project."
   (let* ((root (or root (heroiclands-index--root)))
          (own (heroiclands-index-file root))
          (others
@@ -137,26 +118,22 @@ index is not this command's business."
 
 ;;;###autoload
 (defun heroiclands-index-rebuild ()
-  "Rebuild this project's content index, and report what it holds.
+  "Refresh this project's private content index through the pinned server.
 
-Runs `content-build content-index' from the project root, asynchronously.
-Rebuilding is cheap and the file is derived, so this is the ordinary way to
-bring the index up to date after editing notes.
-
-Nothing rebuilds it for you: a note added since the last rebuild is invisible
-to completion, to link following, and to normalization, all of which read the
-index rather than the tree.
+The server also refreshes its index when it starts and after saves.  This
+command is a manual recovery action for the current project only.
 
 See Info node `(heroiclands)The Content Index'."
   (interactive)
   (let* ((root (heroiclands-index--root))
+         (binary (heroiclands-server-require-executable))
          (default-directory root)
          (out (generate-new-buffer " *heroiclands-index*")))
     (make-process
      :name "heroiclands-index"
      :buffer out
      :noquery t
-     :command (list "npx" "content-build" "content-index")
+     :command (list binary "--rebuild-index")
      :sentinel
      (lambda (proc _event)
        (when (memq (process-status proc) '(exit signal))
@@ -174,12 +151,10 @@ See Info node `(heroiclands)The Content Index'."
                        (heroiclands-mode-note-index)
                        (when (fboundp 'heroiclands-highlight-refresh)
                          (heroiclands-highlight-refresh)))))
-                 ;; The CLI reports "<package> → <path> (N notes, K KiB)";
-                 ;; show its own last line rather than paraphrasing it.
                  (message "%s" (car (last (split-string text "\n" t)))))
-             (message "content-index failed (%d): %s" code
+             (message "Content index refresh failed (%d): %s" code
                       (truncate-string-to-width text 300)))))))
-    (message "Rebuilding the content index…")))
+    (message "Refreshing the content index…")))
 
 ;;;###autoload
 (defun heroiclands-index-query (query)
@@ -187,7 +162,7 @@ See Info node `(heroiclands)The Content Index'."
 
 QUERY is a jq filter applied to each record, so it reads the note's own
 frontmatter shape — `select (.type == \"being\")', `.sohl.body.weight.base'.
-Rebuild first with \\[heroiclands-index-rebuild] if the index is stale.
+Refresh first with \\[heroiclands-index-rebuild] if the index is stale.
 
 See Info node `(heroiclands)Querying Content' for worked recipes, and Info
 node `(heroiclands)Record Format' for every field a record carries."

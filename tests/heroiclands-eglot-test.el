@@ -39,11 +39,12 @@
                   (should-not (local-variable-p 'eglot-server-programs)))))))
       (delete-directory root t))))
 
-(ert-deftest heroiclands-eglot-command-uses-project-installed-server ()
+(ert-deftest heroiclands-eglot-command-uses-pinned-server ()
   (let* ((root (make-temp-file "heroiclands-eglot-" t))
          (content (expand-file-name "assets/content" root))
          (binary (expand-file-name
-                  "node_modules/.bin/heroiclands-content-language-server" root)))
+                  "editor/node_modules/.bin/heroiclands-content-language-server" root))
+         (heroiclands-server-directory (expand-file-name "editor" root)))
     (unwind-protect
         (progn
           (make-directory content t)

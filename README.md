@@ -49,15 +49,15 @@ held is not the same as not there.
 block as an overlay beneath it, rendered through the *build's own expander* — so
 a preview cannot disagree with what ships. The buffer is never modified.
 
-**The content index, queryable.** `C-c h i` rebuilds it; `C-c h I` runs a jq
-filter over it. Each record is a note's own frontmatter, so a query reads
-exactly what the note writes.
+**The content index, queryable.** The pinned language server builds it at
+startup and after saves. `C-c h i` refreshes the current project on demand;
+`C-c h I` runs a jq filter over it. Each record is a note's own frontmatter.
 
 **Project navigation through Eglot.** Load `heroiclands-eglot` to start the
-project-installed content language server in content notes. `M-.` follows an
+pinned content language server in content notes. `M-.` follows an
 Address or wikilink, `C-M-.` searches the current project's names, aliases,
 shortcodes, Addresses, and tags (`tag:myth`), `M-?` lists authored references,
-and `M-,` returns. Search reads the saved JSONL index; `C-c h i` refreshes it.
+and `M-,` returns. Search reads the saved private JSONL index.
 The existing `C-c h .` and `C-c h ,` commands remain available.
 
 **The constellation.** `C-c h g` ripgreps every repository at once; `C-c h h`
@@ -68,8 +68,9 @@ compile buffer whose diagnostics are clickable.
 
 - Emacs 29.1 or newer
 - [`@heroiclands/package-build`](https://github.com/HeroicLands/package-build)
-  in the project, for `content-build content-index` and the table expander
+  in the project for the table expander
 - `node` and `jq` on `PATH`
+- `npm` to install the pinned content language server
 - `rg` on `PATH` for `C-c h g` cross-project text search
 - `makeinfo` to build the manual
 
@@ -95,6 +96,7 @@ line is what actually turns the mode on:
 (add-to-list 'load-path "~/dev/github/heroiclands-emacs")
 
 (require 'heroiclands)            ; the constellation, and the C-c h map
+(require 'heroiclands-server)     ; pinned server installation and index cache
 (require 'heroiclands-index)      ; the content index
 (require 'heroiclands-goto)       ; wikilink completion and normalization
 (require 'heroiclands-highlight)  ; colouring, and marking dead links
@@ -109,6 +111,17 @@ line is what actually turns the mode on:
 (global-heroiclands-mode 1)       ; turn it on where it applies
 ```
 
+Run `M-x heroiclands-server-install` once after installation or an Emacs
+package upgrade. It runs `npm ci` against this package's exact lockfile in
+`user-emacs-directory/heroiclands/content-language-server/`. The server uses
+its own exact `@heroiclands/package-build` dependency, so project builds and
+`npm run clean` cannot change the editor's runtime or erase its index.
+The selected server version is in `server/package.json`; the installed server
+and generator versions are in `server/package-lock.json`.
+Customize `heroiclands-server-directory` to change the install location.
+`heroiclands-eglot-server-command` accepts an explicit command list for
+server development; its default uses the pinned installation.
+
 Each `require` after the first is optional — load only the features you want,
 and the mode installs whichever are present.
 
@@ -121,6 +134,7 @@ With `use-package` and a VC recipe (Emacs 29+):
        :doc "doc/heroiclands.texi")     ; without this there is no manual
   :config
   (require 'heroiclands-index)
+  (require 'heroiclands-server)
   (require 'heroiclands-goto)
   (require 'heroiclands-highlight)
   (require 'heroiclands-dataview)
@@ -156,6 +170,7 @@ made:
   :load-path "~/dev/github/heroiclands-emacs"
   :config
   (require 'heroiclands-index)
+  (require 'heroiclands-server)
   (require 'heroiclands-goto)
   (require 'heroiclands-highlight)
   (require 'heroiclands-dataview)
@@ -200,8 +215,9 @@ the previews and the colouring, which don't need one, and leave no way to see
 why. It also **says so**: the lighter reads `HL?` rather than `HL`, and enabling
 it in a buffer with no index tells you once where to get one.
 
-`C-c h i` then rebuilds and re-examines every open content buffer, so lighters
-and broken-link marking catch up without reopening anything.
+`C-c h i` refreshes the current project and re-examines open content buffers.
+The server also rebuilds on startup and after saves; Emacs notices published
+private indexes and refreshes the lighter and broken-link marking.
 
 ### Where it turns itself on
 
@@ -304,7 +320,7 @@ you ask Emacs.
 | Key | Does |
 | --- | --- |
 | `C-c h ?` | **Open the manual** |
-| `C-c h i` | Rebuild this project's content index |
+| `C-c h i` | Refresh this project's private content index |
 | `C-c h I` | Query it with a jq filter |
 | `C-c h .` | Follow the wikilink at point, landing on its anchor |
 | `C-c h ,` | Jump back |
@@ -340,9 +356,9 @@ Nothing here needs a browser or a copy of this README.
 
 ### The one habit worth keeping
 
-Rebuild the index (`C-c h i`) after adding or renaming notes. Completion, link
-following, and normalization all read the index rather than the tree, and
-nothing rebuilds it for you.
+Save notes to make their metadata available to search. The server refreshes
+its index after saves. Use `C-c h i` to refresh the current project when a
+result appears stale.
 
 ### Finding your projects
 
@@ -444,7 +460,8 @@ can be reported dead.
 | --- | --- | --- |
 
 | `heroiclands-markers` | the three `package-build.config.*` names | What marks a project |
-| `heroiclands-index-relative-dir` | `build/content-index` | Where the index is written |
+| `heroiclands-server-directory` | under `user-emacs-directory` | Pinned server installation |
+| `heroiclands-eglot-server-command` | `nil` | Explicit server command for development |
 | `heroiclands-goto-canonicalize-on-close` | `t` | Rewrite a link when `]]` is typed |
 | `heroiclands-project-roots` | `nil` | Where to look for projects; nil = siblings of the current one |
 | `heroiclands-project-search-depth` | `3` | How far below a root to search |
@@ -487,7 +504,8 @@ what keeps `C-h f` and the manual joined up.
 | File | What it does |
 | --- | --- |
 | `heroiclands.el` | The constellation: projects, ripgrep, compile, link-manifest completion, and the `C-c h` map |
-| `heroiclands-index.el` | Rebuilding and querying the content index |
+| `heroiclands-server.el` | Pinned server installation and private index validation |
+| `heroiclands-index.el` | Refreshing and querying the content index |
 | `heroiclands-goto.el` | Wikilink completion, normalization, and following |
 | `heroiclands-dataview.el` | Content-table previews |
 | `heroiclands-dataview.mjs` | Renders a note's queries through the build's expander |

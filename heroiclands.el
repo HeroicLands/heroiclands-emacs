@@ -574,10 +574,10 @@ ones about this buffer are:
   \\[heroiclands-goto-follow]   follow the wikilink at point
   \\[heroiclands-goto-back]   jump back
   \\[heroiclands-dataview-mode]   toggle content-table previews
-  \\[heroiclands-index-rebuild]   rebuild the content index
+  \\[heroiclands-index-rebuild]   refresh this project's content index
   \\[heroiclands-index-query]   query it with jq
 
-Everything reads the content index, which nothing rebuilds for you.
+The pinned server builds its private index at startup and after saves.
 
 See Info node `(heroiclands)Top' for the manual."
   :lighter (:eval (heroiclands--lighter))

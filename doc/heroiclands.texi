@@ -45,6 +45,7 @@ below documents itself in @kbd{C-h f}, and this manual is @kbd{C-c h ?}.
 * Compile and Diagnostics:: The authority on whether the code is right.
 * TypeScript::              eglot, and why there is no version skew.
 * Git::                     Magit and Forge.
+* Content Language Server:: Installing the pinned runtime.
 * The Content Index::       What it is, and how to rebuild it.
 * Writing Wikilinks::       Completion, normalization, and following.
 * Content Tables::          Previewing @code{dataview} blocks.
@@ -78,7 +79,7 @@ below documents itself in @kbd{C-h f}, and this manual is @kbd{C-c h ?}.
 @section Content
 
 @multitable @columnfractions .18 .82
-@item @kbd{C-c h i} @tab Rebuild this project's content index.
+@item @kbd{C-c h i} @tab Refresh this project's private content index.
 @item @kbd{C-c h I} @tab Run a jq query against it.
 @item @kbd{C-c h .} @tab Follow the wikilink at point.
 @item @kbd{C-c h ,} @tab Jump back.
@@ -101,8 +102,8 @@ while you write it (@pxref{Seeing Them}).
 
 @section The habit worth keeping
 
-Rebuild the index (@kbd{C-c h i}) after adding or renaming notes.
-Everything else reads from it, and nothing rebuilds it for you.
+Install the pinned server with @kbd{M-x heroiclands-server-install}.
+It indexes each content project when Eglot starts and after saves.
 
 @node The Mode
 @chapter The Mode
@@ -466,62 +467,95 @@ and pull requests.
 @kbd{C-c t} opens a vterm running bash — run @command{claude} there and
 its output paths become clickable.
 
+@node Content Language Server
+@chapter Content Language Server
+
+@findex heroiclands-server-install
+@vindex heroiclands-server-directory
+@vindex heroiclands-eglot-server-command
+
+Run @kbd{M-x heroiclands-server-install} after loading
+@code{heroiclands-server}.  This installs the version locked by this Emacs
+package with @command{npm ci} beneath
+@file{~/.emacs.d/heroiclands/content-language-server/} by default.  The
+exact directory follows @code{user-emacs-directory}; customize
+@code{heroiclands-server-directory} if needed.  The server package pins
+its content index generator dependency to an exact version.  Project
+@file{node_modules} and @file{build/} do not supply the editor runtime.
+The selected server version is in @file{server/package.json};
+@file{server/package-lock.json} records the installed server and generator
+versions.
+
+Load @code{heroiclands-eglot} to start the installed server in Markdown
+notes under a content project's tree.  Other Markdown buffers retain
+their normal Eglot setup.  @code{heroiclands-eglot-server-command} accepts
+an explicit command list when developing the server.  Leave it nil for
+the pinned installation.  @kbd{M-.} follows an Address or wikilink,
+@kbd{C-M-.} searches indexed names and tags in the current project,
+@kbd{M-?} lists authored references, and @kbd{M-,} returns through
+Xref history.  Unsaved metadata edits do not enter search results.
+
 @node The Content Index
 @chapter The Content Index
 
 @cindex content index
 @cindex index, content
 
-Every content build walks the whole note tree and parses every note's
-frontmatter, then throws the result away.  The content index publishes
-that walk instead, so anything — you, this editor, a CI check, another
-package's build — can ask a question about the content without
-re-deriving it.
+The installed content language server publishes the note tree's saved
+frontmatter as JSON Lines.  Emacs reads the same private index for
+completion, link following, highlighting, and jq queries.  Eglot reads
+it for navigation and search.
 
 It is one JSON object per line, in JSON Lines:
 
 @verbatim
-build/content-index/<package>-metadata.jsonl
+~/Library/Caches/HeroicLands/content-language-server/<project-hash>/metadata.jsonl
 @end verbatim
+
+That is the macOS default.  Linux uses @file{$XDG_CACHE_HOME} or
+@file{~/.cache}; Windows uses the local application data directory.
+The server computes the project hash and reports the exact path with
+@command{heroiclands-content-language-server --print-index-path} from a
+project root.  The accompanying @file{metadata.json} carries the package
+identity, generator version, and checksum.  Emacs accepts complete,
+compatible snapshots.  A project clean or build leaves this cache alone.
 
 @section Rebuilding it
 
 @kindex C-c h i
 @findex heroiclands-index-rebuild
 
-@kbd{C-c h i} (@code{heroiclands-index-rebuild}) regenerates it and
-reports what it wrote:
+@kbd{C-c h i} (@code{heroiclands-index-rebuild}) refreshes the current
+project through the pinned server and reports the path it wrote:
 
 @verbatim
-sohl -> build/content-index/sohl-metadata.jsonl
+~/Library/Caches/HeroicLands/content-language-server/<project-hash>/metadata.jsonl
 @end verbatim
 
-It runs @command{npx content-build content-index} from the project root.
-The same command works in any terminal.
+The equivalent terminal command is
+@command{heroiclands-content-language-server --rebuild-index} from the
+project root.  This command refreshes only the current project.
 
 @section What to expect of it
 
-The index is @strong{derived and disposable}.  It lives under
-@file{build/}, is gitignored, and nothing may be authored against it.
-Rebuilding costs a frontmatter parse rather than a full build.  The
-index is a generated artifact and need not be committed.
+The index is @strong{derived and disposable}.  It lives outside the
+project tree and is rebuilt from saved notes.  Nothing is authored
+against it or committed.
 
 It is also @strong{byte-stable}: rebuilding over an unchanged tree
 produces an identical file.  A rebuild is never noise.
 
-@strong{Nothing rebuilds it automatically.}  A note added since the last
-rebuild is invisible to completion, to link following, and to
-normalization, and Eglot search, all of which read the index rather than the tree.  If
-something you know exists cannot be found, rebuild first.
+The server rebuilds at startup and after saves.  Emacs notices a complete
+private index publication and refreshes open buffers.  A foreign project
+contributes records only when its configured root has a complete private
+index.  Reading it does not start a build in every configured project.
+Use @kbd{C-c h i} when a result looks stale or a rebuild fails.
 
 @section Navigating through Eglot
 
 Load @code{heroiclands-eglot} alongside the other optional HeroicLands
 features.  In a Markdown note beneath the project's content tree, the
-mode starts the project's installed content language server.  Run
-@command{npm ci} in that project to install its declared version of
-@code{@@heroiclands/package-build}, and build the index with
-@kbd{C-c h i}.
+mode starts the pinned content language server.
 
 @kbd{M-.} follows the Address or wikilink at point.  @kbd{C-M-.}
 searches names, aliases, ASCII spellings, shortcodes, and Addresses in
@@ -822,7 +856,7 @@ From a terminal, the same thing:
 
 @verbatim
 jq -r 'select(.type == "being") | .name.full' \
-  build/content-index/sohl.jsonl
+  ~/Library/Caches/HeroicLands/content-language-server/<project-hash>/metadata.jsonl
 @end verbatim
 
 @node Record Format
@@ -992,7 +1026,8 @@ makeinfo -o ~/.config/emacs/info/heroiclands.info \
 
 @table @asis
 @item A note I just added is not offered
-Rebuild the index: @kbd{C-c h i}.  Nothing rebuilds it for you.
+Save the note and let the server finish indexing.  Use @kbd{C-c h i}
+to refresh the current project on demand.
 
 @item Completion does not open in a link
 It only arms when you @emph{type} @code{[[}.  Editing an existing link
@@ -1000,7 +1035,8 @@ deliberately does not wake it.  Retype the link, or use @kbd{C-c h .} to
 navigate instead.
 
 @item ``No content index built''
-Run @kbd{C-c h i} once in this project.
+Run @kbd{M-x heroiclands-server-install} if the server is absent, then
+start Eglot in a content note or run @kbd{C-c h i} in this project.
 
 @item Following a link says the note is unknown
 Either the index is stale (@kbd{C-c h i}) or the address really is wrong.
