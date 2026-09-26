@@ -56,8 +56,11 @@ startup and after saves. `C-c h i` refreshes the current project on demand;
 **Project navigation through Eglot.** Load `heroiclands-eglot` to start the
 pinned content language server in content notes. `M-.` follows an
 Address or wikilink, `C-M-.` searches the current project's names, aliases,
-shortcodes, Addresses, and tags (`tag:myth`), `M-?` lists authored references,
-and `M-,` returns. Search reads the saved private JSONL index.
+shortcodes, Addresses, and tags (`tag:myth`). Prefix the query with `all:`
+to include the foreign projects selected by `heroiclands-index-projects`;
+`all:tag:myth` searches their tags. Results show the owning package.
+`M-?` lists authored references across the selected projects, and `M-,`
+returns. Search reads the saved private JSONL index.
 The existing `C-c h .` and `C-c h ,` commands remain available.
 
 **The constellation.** `C-c h g` ripgreps every repository at once; `C-c h h`
@@ -446,8 +449,11 @@ nothing, and the project stays selectable by directory or path.
 A wikilink may name a note in another package by its canonical
 `<package>-<type>-<shortcode>` address — `sohl-being-aurochs` cited from a
 `thalorna` note. Resolving one means holding that package's index too, so
-`heroiclands-index-projects` says which to read; it defaults to every project
-that `heroiclands-project-roots` finds and that has an index built.
+`heroiclands-index-projects` selects the foreign projects for Eglot and
+existing indexes for Emacs link completion and highlighting. It defaults to
+every project that `heroiclands-project-roots` finds. Eglot builds a missing
+foreign index when a foreign search, definition, or reference needs it.
+Restart Eglot in open content buffers after changing the selection.
 
 A target belonging to a package that **isn't** loaded is never marked broken.
 Not held is not the same as not there, and a colour that guesses is a colour
@@ -465,7 +471,7 @@ can be reported dead.
 | `heroiclands-goto-canonicalize-on-close` | `t` | Rewrite a link when `]]` is typed |
 | `heroiclands-project-roots` | `nil` | Where to look for projects; nil = siblings of the current one |
 | `heroiclands-project-search-depth` | `3` | How far below a root to search |
-| `heroiclands-index-projects` | `all` | Whose indexes to resolve links against |
+| `heroiclands-index-projects` | `all` | Foreign projects for Eglot and local link resolution |
 | `heroiclands-highlight-check-targets` | `t` | Mark links the index says are dead |
 | `heroiclands-dataview-max-rows` | `40` | Preview truncation; `nil` for all |
 | `heroiclands-index-jq` | `jq` | The jq executable |
