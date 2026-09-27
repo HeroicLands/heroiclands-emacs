@@ -70,9 +70,12 @@ startup and after saves. `C-c h i` refreshes the current project on demand;
 **Project navigation through Eglot.** Load `heroiclands-eglot` to start the
 pinned content language server in content notes. `M-.` follows an
 Address or wikilink, `C-M-.` searches the current project's names, aliases,
-shortcodes, Addresses, and tags (`tag:myth`). Prefix the query with `all:`
-to include the foreign projects selected by `heroiclands-index-projects`;
-`all:tag:myth` searches their tags. Results show the owning package.
+shortcodes, Addresses, and tags (`tag:myth`). Use `name:camel`,
+`shortcode:bctrncml`, or `type:being` to search one indexed field. Prefix a
+query with `all:` to include the foreign projects selected by
+`heroiclands-index-projects`; `all:tag:myth` searches their tags.
+`package:thalorna name:camel` searches only that package when it is among the
+configured projects. Results show the owning package.
 `M-?` lists authored references across the selected projects, and `M-,`
 returns. Search reads the saved private JSONL index.
 The existing `C-c h .` and `C-c h ,` commands remain available.
@@ -83,7 +86,7 @@ compile buffer whose diagnostics are clickable.
 
 ## Requirements
 
-- Emacs 29.1 or newer
+- Emacs 31.1 or newer
 - The project's installed `@heroiclands/hugo-theme` for preview styling
 - The pinned content language server installation for preview rendering
 - `node`, `jq`, and `pandoc` on `PATH`
@@ -143,7 +146,7 @@ server development; its default uses the pinned installation.
 Each `require` after the first is optional — load only the features you want,
 and the mode installs whichever are present.
 
-With `use-package` and a VC recipe (Emacs 29+):
+With `use-package` and a VC recipe:
 
 ```elisp
 (use-package heroiclands

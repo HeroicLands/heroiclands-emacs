@@ -503,7 +503,10 @@ their normal Eglot setup.  @code{heroiclands-eglot-server-command} accepts
 an explicit command list when developing the server.  Leave it nil for
 the pinned installation.  @kbd{M-.} follows an Address or wikilink,
 @kbd{C-M-.} searches indexed names and tags in the current project;
-@code{all:} includes selected foreign projects.  @kbd{M-?} lists
+@code{all:} includes selected foreign projects.  Field prefixes such as
+@code{name:}, @code{shortcode:}, and @code{type:} narrow the search.
+@code{package:thalorna name:camel} selects a configured package and
+searches its names.  @kbd{M-?} lists
 authored references across those projects, and @kbd{M-,} returns
 through Xref history.  Unsaved metadata edits do not enter search results.
 
@@ -572,10 +575,15 @@ project, the mode starts the pinned content language server.
 
 @kbd{M-.} follows the Address or wikilink at point.  @kbd{C-M-.}
 searches names, aliases, ASCII spellings, shortcodes, and Addresses in
-the current project; @code{tag:myth} searches tags.  Prefix the query
-with @code{all:} to include foreign projects selected by
-@code{heroiclands-index-projects}; @code{all:tag:myth} searches their
-tags.  Results identify the owning package and open its source note.
+the current project; @code{tag:myth} searches tags.  Use
+@code{name:camel}, @code{shortcode:bctrncml}, or @code{type:being} to
+search one field.  Prefix the query with @code{all:} to include foreign
+projects selected by @code{heroiclands-index-projects};
+@code{all:tag:myth} searches their tags.
+@code{package:thalorna name:camel} selects that package from the
+configured projects and searches its names.  A package outside the
+selected roots contributes no results even if its cache is present.
+Results identify the owning package and open its source note.
 @kbd{M-.} follows a package-qualified Address into its owning project.
 @kbd{M-?} finds authored wikilinks and frontmatter Address references
 in the current and selected foreign projects.  @kbd{M-,} returns to the
