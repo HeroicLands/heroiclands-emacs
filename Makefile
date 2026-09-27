@@ -41,6 +41,7 @@ check:
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-goto-test.el -f ert-run-tests-batch-and-exit
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-project-test.el -f ert-run-tests-batch-and-exit
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-server-test.el -f ert-run-tests-batch-and-exit
+	$(EMACS) -Q --batch -L . -l tests/heroiclands-highlight-test.el -f ert-run-tests-batch-and-exit
 
 ## Activate the committed git hooks for this checkout.
 ##
