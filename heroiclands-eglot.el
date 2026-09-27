@@ -15,6 +15,7 @@
 (require 'heroiclands-goto)
 (require 'heroiclands-server)
 (require 'eglot)
+(require 'flymake)
 (require 'cl-lib)
 
 (defgroup heroiclands-eglot nil
@@ -96,11 +97,12 @@ Address fields use the same server candidates.  See Info node
         capf))))
 
 (defun heroiclands-eglot--manage-capf ()
-  "Use the content CAPF while Eglot manages this note."
+  "Use content completion and Flymake while Eglot manages this note."
   (if (and (eglot-managed-p) (heroiclands-eglot--content-buffer-p))
       (progn
         (remove-hook 'completion-at-point-functions #'eglot-completion-at-point t)
-        (add-hook 'completion-at-point-functions #'heroiclands-eglot-capf nil t))
+        (add-hook 'completion-at-point-functions #'heroiclands-eglot-capf nil t)
+        (flymake-mode 1))
     (remove-hook 'completion-at-point-functions #'heroiclands-eglot-capf t)))
 
 (defun heroiclands-eglot--teardown-capf ()
