@@ -64,9 +64,12 @@ startup and after saves. `C-c h i` refreshes the current project on demand;
 **Project navigation through Eglot.** Load `heroiclands-eglot` to start the
 pinned content language server in content notes. `M-.` follows an
 Address or wikilink, `C-M-.` searches the current project's names, aliases,
-shortcodes, Addresses, and tags (`tag:myth`). Prefix the query with `all:`
-to include the foreign projects selected by `heroiclands-index-projects`;
-`all:tag:myth` searches their tags. Results show the owning package.
+shortcodes, Addresses, and tags (`tag:myth`). Use `name:camel`,
+`shortcode:bctrncml`, or `type:being` to search one indexed field. Prefix a
+query with `all:` to include the foreign projects selected by
+`heroiclands-index-projects`; `all:tag:myth` searches their tags.
+`package:thalorna name:camel` searches only that package when it is among the
+configured projects. Results show the owning package.
 `M-?` lists authored references across the selected projects, and `M-,`
 returns. Search reads the saved private JSONL index.
 The existing `C-c h .` and `C-c h ,` commands remain available.

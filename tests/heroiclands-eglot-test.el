@@ -7,6 +7,28 @@
 
 (define-derived-mode markdown-mode text-mode "Markdown")
 
+(ert-deftest heroiclands-eglot-forwards-field-qualified-xref-queries ()
+  (with-temp-buffer
+    (let (queries)
+      (cl-letf (((symbol-function 'eglot-server-capable)
+                 (lambda (_capability) t))
+                ((symbol-function 'eglot--current-server-or-lose)
+                 (lambda () 'server))
+                ((symbol-function 'eglot--request)
+                 (lambda (_server _method params)
+                   (push (plist-get params :query) queries)
+                   nil)))
+        (dolist (query '("camel" "tag:myth" "name:camel"
+                         "shortcode:bctrncml" "type:being"
+                         "all:name:camel" "package:thalorna name:camel"
+                         "package:unconfigured name:camel"))
+          (should-not (xref-backend-apropos 'eglot query)))
+        (should (equal (nreverse queries)
+                       '("camel" "tag:myth" "name:camel"
+                         "shortcode:bctrncml" "type:being"
+                         "all:name:camel" "package:thalorna name:camel"
+                         "package:unconfigured name:camel")))))))
+
 (ert-deftest heroiclands-eglot-starts-only-in-recognized-notes ()
   (let* ((root (make-temp-file "heroiclands-eglot-" t))
          (content (expand-file-name "assets/content" root))
