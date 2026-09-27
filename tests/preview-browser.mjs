@@ -23,14 +23,24 @@ test("browser page renders representative content and keeps the last good page",
     fs.writeFileSync(path.join(install, "package.json"), "{}\n");
     fs.writeFileSync(path.join(packageRoot, "package.json"),
         JSON.stringify({ name: "@heroiclands/package-build", type: "module", exports: { "./package.json": "./package.json" } }));
+    const generatedBoxes = [{ id: "profile", kind: "note", title: "Profile", sections: [
+        { layout: "rows", label: "Facts", rows: [
+            { label: "Population", kind: "number", value: 1500 },
+            { label: "Patron", kind: "link", value: { text: "A & B", url: "/patron/" } },
+        ] },
+    ] }];
     fs.writeFileSync(path.join(packageRoot, "engine/index.mjs"), `
 export const sitePreview = { async prepareSitePreview() {
   return { async render(_file, text) {
     if (text.includes('invalid query')) return {ok:false,findings:[{file:'note.md',line:2,message:'invalid query'}]};
-    return {ok:true,markdown:text,frontmatter:{},findings:[]};
+    const boxes = ${JSON.stringify(generatedBoxes)};
+    if (text.includes('Revised')) boxes[0].title = 'Revised Profile';
+    return {ok:true,markdown:text,frontmatter:{infoboxes:boxes},findings:[]};
   }, async refresh() {}, async close() {} };
 } };\n`);
-    fs.writeFileSync(path.join(theme, "style.css"), "body { color: #123456; }\n");
+    fs.writeFileSync(path.join(theme, "style.css"),
+        "body { color: #123456; } .single-with-sidebar { display: grid; } " +
+        "@media(max-width:960px) { .single-with-sidebar { grid-template-columns: 1fr; } }\n");
     fs.writeFileSync(note, "fixture\n");
     const child = spawn("node", [script, install, root, note],
         { cwd: root, stdio: ["pipe", "pipe", "pipe"] });
@@ -57,15 +67,32 @@ export const sitePreview = { async prepareSitePreview() {
         assert.match(state.body, /<pre\b/);
         assert.match(state.body, /<details>/);
         assert.match(state.body, /Place/);
+        assert.match(state.infobox, /class="info-sidebar info-box info-box-profile"/);
+        assert.match(state.infobox, /Population<\/dt><dd>1,500/);
+        assert.match(state.infobox, /A &amp; B/);
         const page = await (await fetch(ready.url)).text();
         assert.match(page, /link.removeAttribute\('href'\)/);
         assert.match(page, /heading.removeAttribute\('id'\)/);
-        assert.match(await (await fetch(`${ready.url}style.css`)).text(), /#123456/);
+        assert.match(page, /classList.toggle\('single-with-sidebar'/);
+        const style = await (await fetch(`${ready.url}style.css`)).text();
+        assert.match(style, /#123456/);
+        assert.match(style, /@media\(max-width:960px\)/);
         child.stdin.write(JSON.stringify({ type: "render", generation: 2, text: "invalid query" }) + "\n");
         assert.equal((await next()).type, "error");
         const failed = await (await fetch(`${ready.url}state`)).json();
         assert.equal(failed.body, state.body);
+        assert.equal(failed.infobox, state.infobox);
         assert.match(failed.error, /invalid query/);
+        child.stdin.write(JSON.stringify({ type: "render", generation: 3, text: markdown,
+            infobox: false }) + "\n");
+        assert.equal((await next()).type, "rendered");
+        const bodyOnly = await (await fetch(`${ready.url}state`)).json();
+        assert.equal(bodyOnly.infobox, "");
+        child.stdin.write(JSON.stringify({ type: "render", generation: 4,
+            text: "Revised", infobox: true }) + "\n");
+        assert.equal((await next()).type, "rendered");
+        const revised = await (await fetch(`${ready.url}state`)).json();
+        assert.match(revised.infobox, /Revised Profile/);
     } finally {
         child.stdin.write('{"type":"stop"}\n');
         child.stdin.end();

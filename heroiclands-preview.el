@@ -26,6 +26,13 @@ The browser controls whether this request creates a window or tab.
 See Info node `(heroiclands)Live Preview'."
   :type 'boolean :group 'heroiclands-preview)
 
+(defcustom heroiclands-preview-show-infobox t
+  "Show the site's generated infobox beside a note when it has one.
+
+Set this buffer-locally to hide a note's infobox, then run
+`heroiclands-preview-refresh'.  See Info node `(heroiclands)Live Preview'."
+  :type 'boolean :group 'heroiclands-preview)
+
 (defcustom heroiclands-preview-node "node"
   "Node executable used by the live page renderer.
 
@@ -55,6 +62,7 @@ See Info node `(heroiclands)Live Preview'."
     (heroiclands-preview--send
      `(:type "render" :generation ,heroiclands-preview--generation
        :text ,(buffer-substring-no-properties (point-min) (point-max))
+       :infobox ,(if heroiclands-preview-show-infobox t :false)
        :refresh ,(if refresh t :false)))))
 
 (defun heroiclands-preview--changed (&rest _)
@@ -176,7 +184,8 @@ See Info node `(heroiclands)Live Preview'."
 
 The current buffer is rendered after `heroiclands-preview-idle-delay'
 seconds without typing.  The browser updates without navigating away.
-Errors leave the last good page visible.  Use
+Generated infoboxes appear beside the page when present.  Errors leave the
+last good page visible.  Use
 `heroiclands-preview-refresh' to reload saved project state and assets.
 
 See Info node `(heroiclands)Live Preview'."

@@ -789,8 +789,9 @@ index; the lighter reads @samp{HL?} until the local index is ready.
 @kbd{C-c h p} opens the current HeroicLands note in a browser window. The
 preview shows the page body with the site's CSS. SQL tables, wikilinks,
 images, code fences, and GM disclosures use the site's transformations.
-Links and heading anchors are visible but do not navigate. The infobox is
-not part of the preview.
+Links and heading anchors are visible but do not navigate. A note with a
+generated infobox shows its boxes in the site's order. On a wide screen the
+rail sits beside the prose; on a narrow screen it sits above it.
 
 The current buffer is sent to the renderer three seconds after typing stops.
 Typing again resets the timer. Unsaved edits can be previewed without
@@ -807,6 +808,7 @@ project configuration names as @code{heroiclands-mode}: @file{.yaml},
 
 @vindex heroiclands-preview-idle-delay
 @vindex heroiclands-preview-new-window
+@vindex heroiclands-preview-show-infobox
 @vindex heroiclands-preview-node
 
 The renderer uses the pinned package-build installation from
@@ -816,7 +818,11 @@ The renderer uses the pinned package-build installation from
 Set @code{heroiclands-preview-idle-delay} to adjust the pause. The default
 @code{heroiclands-preview-new-window} asks @code{browse-url} for a separate
 browser window; the browser decides whether that request opens a window or
-tab. @code{heroiclands-preview-node} selects the Node executable.
+tab. Set @code{heroiclands-preview-show-infobox} to @code{nil} in a buffer
+to show only its body, then run @kbd{C-c h P}. The infobox reads generated
+page metadata, so an unsaved change to its inputs appears after the same
+idle pause as the body. @code{heroiclands-preview-node} selects the Node
+executable.
 
 @kbd{C-c C-c p} remains Markdown mode's one-time preview command.
 

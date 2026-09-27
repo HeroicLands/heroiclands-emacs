@@ -108,4 +108,18 @@
         (should (equal (plist-get (car sent) :type) "stop"))
         (should (equal (plist-get (cadr sent) :type) "invalidate"))))))
 
+(ert-deftest heroiclands-preview-can-hide-infobox-per-buffer ()
+  (with-temp-buffer
+    (insert "---\nshortcode: note\n---\nBody\n")
+    (setq heroiclands-preview-mode t)
+    (setq-local heroiclands-preview-show-infobox nil)
+    (let (sent)
+      (cl-letf (((symbol-function 'heroiclands-preview--send)
+                 (lambda (message) (setq sent message))))
+        (heroiclands-preview--render)
+        (should (eq (plist-get sent :infobox) :false))
+        (setq-local heroiclands-preview-show-infobox t)
+        (heroiclands-preview--render)
+        (should (eq (plist-get sent :infobox) t))))))
+
 ;;; heroiclands-preview-test.el ends here

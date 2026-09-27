@@ -61,7 +61,10 @@ current note. The page updates three seconds after the last edit, including
 unsaved SQL tables, images, links, code fences, and GM disclosures. `C-c h P`
 reloads saved project state, configuration, and assets. Pandoc, the pinned
 server installation, and the project's installed site theme are required. The
-preview never writes to the note or site build directory.
+preview never writes to the note or site build directory. Notes with a
+generated infobox show it beside the page on wide screens and above it on
+narrow screens. Set `heroiclands-preview-show-infobox` to `nil` in a buffer to
+see its body alone.
 
 **The content index, queryable.** The pinned language server builds it at
 startup and after saves. `C-c h i` refreshes the current project on demand;
@@ -503,6 +506,7 @@ index to check. Syntax colouring still works while Eglot is unavailable.
 | `heroiclands-index-projects` | `all` | Foreign projects for Eglot and local link resolution |
 | `heroiclands-preview-idle-delay` | `3` | Idle seconds before rendering |
 | `heroiclands-preview-new-window` | `t` | Request a separate browser window |
+| `heroiclands-preview-show-infobox` | `t` | Show generated infoboxes when present |
 | `heroiclands-index-jq` | `jq` | The jq executable |
 
 ## Documentation
