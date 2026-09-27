@@ -182,6 +182,29 @@
                               (string-match-p "Bicamelan" item))
                             matches)))))))
 
+(ert-deftest heroiclands-eglot-capf-offers-server-anchors ()
+  (with-temp-buffer
+    (insert "[[being-orca#dos")
+    (goto-char (point-max))
+    (setq heroiclands-goto--entry (copy-marker (+ (point-min) 2)))
+    (let ((items [(:label "dossier" :filterText "dos"
+                   :textEdit (:newText "dossier"))]))
+      (cl-letf (((symbol-function 'heroiclands-eglot--content-buffer-p)
+                 (lambda () t))
+                ((symbol-function 'eglot-managed-p) (lambda () t))
+                ((symbol-function 'eglot-server-capable)
+                 (lambda (&rest _args) '(:triggerCharacters ["#"])))
+                ((symbol-function 'eglot--current-server-or-lose)
+                 (lambda () 'server))
+                ((symbol-function 'eglot--request)
+                 (lambda (&rest _args) items))
+                ((symbol-function 'eglot--CompletionParams)
+                 (lambda () nil)))
+        (let* ((capf (heroiclands-eglot-capf))
+               (matches (funcall (nth 2 capf) "dos" nil t)))
+          (should (equal (mapcar #'substring-no-properties matches)
+                         '("dossier"))))))))
+
 (ert-deftest heroiclands-eglot-capf-coexists-with-other-completion-and-mode-teardown ()
   (with-temp-buffer
     (let ((other (lambda () 'other)))
