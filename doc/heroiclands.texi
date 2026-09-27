@@ -140,7 +140,7 @@ answer from:
 
 @multitable @columnfractions .5 .5
 @headitem Needs the index @tab Works without it
-@item Completion after @code{[[} @tab Colouring wikilinks by part
+@item Eglot completion after @code{[[} @tab Colouring wikilinks by part
 @item Rewriting a link on @code{]]} @tab Content-table previews
 @item @kbd{C-c h .} following a link @tab @kbd{C-c h i}, which builds one
 @item Marking a link broken @tab The @kbd{C-c h} repository commands
@@ -151,8 +151,7 @@ Each of those behaves differently without one, and deliberately so:
 
 @multitable @columnfractions .3 .7
 @item @kbd{C-c h .} @tab Refuses, naming the command that builds an index.
-@item Completion @tab Offers nothing.  A completion function that raised an
-error would be a completion function nobody could type through.
+@item Completion @tab Offers nothing until the server has an index.
 @item @code{]]} @tab Leaves the link as typed and @emph{says so}, once per
 buffer.  Silence would be the worst outcome available: the author asked for
 a check and would get neither the check nor a reason.
@@ -561,7 +560,7 @@ produces an identical file.  A rebuild is never noise.
 The server rebuilds the current project at startup and after saves.  Emacs
 notices a complete private index publication and refreshes open buffers.
 An Eglot foreign search, definition, or reference builds missing foreign
-indexes on demand.  Emacs link completion and highlighting read only
+indexes on demand.  Emacs link following and highlighting read only
 complete indexes and do not start foreign builds.
 Use @kbd{C-c h i} when a result looks stale or a rebuild fails.
 
@@ -607,7 +606,7 @@ friendlier after a @code{|}.  The address is the half that has to be
 exactly right, and the half nobody can remember.
 
 @menu
-* Completion::          Three modes, chosen by what you type.
+* Completion::          Indexed names, Addresses, and anchors.
 * Normalization::       What typing @code{]]} does.
 * Following a Link::    Jumping to the note, or to a section.
 * Seeing Them::         What the colours mean.
@@ -616,103 +615,60 @@ exactly right, and the half nobody can remember.
 @node Completion
 @section Completion
 
-@findex heroiclands-goto-capf
+@findex heroiclands-eglot-capf
 
-Typing @code{[[} opens completion.  What it offers depends on what you
-type next.
+In a recognized content note, Eglot asks the pinned content language server
+for indexed completion candidates.  Typing @code{[[} opens completion for
+notes in the current project and the foreign projects selected by
+@code{heroiclands-index-projects}.  The server searches saved
+@code{name.full}, aliases, shortcodes, and Addresses.  A query matches
+anywhere in those fields: @code{[[camel} can offer Bactrian Camel,
+Xerathian Bactrian Camel, and a note whose name merely contains
+``camel''.  The candidate shows its owning package and canonical Address.
 
-@table @asis
-@item After a @code{#}
-The anchors that note declares — exactly those, since the index holds its
-whole set.
+The inserted Address is the shortest spelling that still resolves to the
+exact selected package, system, and target.  From Thalorna, selecting
+@code{thalorna-sohl-being-bctrncml} inserts
+@code{sohl-being-bctrncml} when the shorter @code{being-bctrncml} also
+names a @code{none} system target.  A foreign target keeps its package
+segment when that segment is needed.  This rule also applies to values
+in frontmatter fields that take an Address.
 
-@item A type and a separator
-@code{weapongear-}, @code{being/}, or the package-qualified
-@code{sohl-doc-} reads as the start of an address, and the addresses
-under it are offered.
-
-@item Anything else
-Treated as a @strong{name}.  This is the mode you want most of the time:
-you know a note is called ``Bactrian Camel'' and have no idea its
-shortcode is @code{bctrncml}.
-@end table
-
-Each candidate shows the address and the readable name together:
-
-@verbatim
-weapongear-cbw100 — Composite Bow 100
-being-bctrncml — Bactrian Camel
-armorgear-k34hlm — Kûrbúl ¾-Helm (Kurbul 3/4-Helm)
-Killer Whale — being-orca  [being -> Orca]
-@end verbatim
-
-The name is part of what gets matched, not a decoration beside it, so
-typing @samp{bactrian} finds the note.  Where a name is written in the
-setting's orthography, its typeable form is shown in parentheses —
-@samp{kurbul} matches.  Aliases get candidates of their own, naming the
-note they lead to.
-
-Only the address is ever inserted.
+After @code{#} in a wikilink, completion offers the selected note's
+anchors.  The same server handles image links, with the @code{none}
+system as their default.  Ordinary wikilinks default to @code{note}.
+Completion stays quiet when editing a link that has already been closed.
+The server reads saved metadata; save a changed note before expecting its
+new name or alias in completion.
 
 @node Normalization
 @section Normalization
 
-Typing @code{]]} closes the link and rewrites it into canonical form:
-
-@verbatim
-[[Aurochs]]                -> [[being-aurochs|Aurochs]]
-[[aurochs]]                -> [[being-aurochs|Aurochs]]
-[[Kurbul 3/4-Helm]]        -> [[armorgear-k34hlm|Kûrbúl ¾-Helm]]
-[[Killer Whale]]           -> [[being-orca|Killer Whale]]
-[[being-aurochs#dossier]]  -> [[being-aurochs#dossier|Aurochs]]
-@end verbatim
-
-You get the address you must write, with the name you actually want
-displayed.
-
-@strong{An alias keeps your wording.}  @code{[[Killer Whale]]} becomes
-@code{|Killer Whale}, not @code{|Orca}.  If you reached for a sobriquet
-you meant that sobriquet; normalization fixes the half that has to be an
-address and leaves your prose alone.  A link that already states its own
-display half is left alone entirely.
-
-@subsection When it cannot
-
-Anything that is not exactly one note is an error, raised where you typed
-it rather than left to fail in a build:
-
-@table @asis
-@item No such note
-@code{[[being-nosuchthing]]} — @emph{No note named or addressed
-`being-nosuchthing'}
-
-@item Ambiguous
-@code{[[Alchemy]]} — @emph{`Alchemy' names 2 notes (doc-alchemy,
-mysticalability-alch) — say which}
-
-Two notes really are called Alchemy.  Pick one from completion, or type
-its address.
-
-@item Unknown anchor
-@code{[[being-aurochs#nope]]} — @emph{declares no anchor `nope' (it has:
-appearance, dossier)}
-
-The index knows the note's whole anchor set, so this is a fact rather
-than a failed search.
-@end table
-
-@subsection Only while typing
-
 @vindex heroiclands-goto-canonicalize-on-close
 
-Completion and normalization both apply only to a link you are
-@emph{entering}.  They arm when you type @code{[[} and disarm when the
-link closes.  Going back to an existing link and editing it wakes
-neither, so a link you settled stays settled and a deliberately odd one
-is never second-guessed.
+Typing @code{]]} closes a newly entered wikilink.  For a completion you
+selected, Emacs keeps the server's exact target and adds its display name:
 
-Set @code{heroiclands-goto-canonicalize-on-close} to @code{nil} to turn
-the rewriting off entirely.
+@verbatim
+[[sohl-being-bctrncml]] -> [[sohl-being-bctrncml|Xerathian Bactrian Camel]]
+[[being-orca]]         -> [[being-orca|Killer Whale]]
+@end verbatim
+
+An exact alias stays as the display text.  An authored display half after
+@code{|} stays exactly as written.  The selected target remains distinct
+from another system target or another package's note, even when both
+records point to the same Markdown file.
+
+When no completion was selected, Emacs resolves a typed Address or exact
+name against the available private indexes.  An unknown or ambiguous name
+raises an error and asks you to choose.  A missing anchor is also reported
+when its note's index is available.  If no index is available, the link is
+left as typed and the buffer reports that it was not checked.
+
+Completion and normalization apply to a link you are entering.  Editing a
+closed link wakes neither.  Set
+@code{heroiclands-goto-canonicalize-on-close} to @code{nil} to disable
+rewriting.
 
 @node Following a Link
 @section Following a Link
@@ -794,13 +750,15 @@ computed one yields nothing rather than an invented answer.
 @vindex heroiclands-index-projects
 
 A wikilink may name a note in another package by its canonical
-@code{<package>-<type>-<shortcode>} address --- @code{sohl-being-aurochs}
+@code{<package>-<system>-<type>-<shortcode>} Address ---
+@code{sohl-note-being-aurochs}
 cited from a @code{thalorna} note.  Resolving one means holding that
 package's index too, so @code{heroiclands-index-projects} says which to
 read; it defaults to every project found under
 @code{heroiclands-project-roots}.  The language server builds a selected
-foreign project's index when Eglot navigation needs it.  Emacs link
-completion and highlighting use its index when a complete one exists.
+foreign project's index when Eglot completion or navigation needs it.
+Emacs link following and highlighting use its index when a complete one
+exists.
 
 A target whose package is @emph{not} loaded is never marked broken.  Only
 a bare local slug, or a canonical address in a package actually held, can
@@ -906,8 +864,8 @@ is relative to the content root, never absolute.
 
 @item address
 @code{slug} is what goes inside @code{[[@dots{}]]} within the package
-(@code{being-aurochs}); @code{canonical} is the package-qualified key
-(@code{sohl-being-aurochs}).  Both @code{null} for a note with no type or
+(@code{being-aurochs}); @code{canonical} includes package and system
+(@code{sohl-note-being-aurochs}).  Both @code{null} for a note with no type or
 shortcode, which has no address at all.
 
 @item anchors

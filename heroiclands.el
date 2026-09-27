@@ -43,9 +43,9 @@
 (declare-function heroiclands-hbs-describe "heroiclands-hbs")
 (declare-function heroiclands-hbs-refresh "heroiclands-hbs")
 (declare-function heroiclands-dataview-clear "heroiclands-dataview")
-(declare-function heroiclands-goto-capf "heroiclands-goto")
 (declare-function heroiclands-goto--arm "heroiclands-goto")
 (declare-function heroiclands-goto--close-link "heroiclands-goto")
+(declare-function heroiclands-eglot--teardown-capf "heroiclands-eglot")
 (declare-function heroiclands-highlight-enable "heroiclands-highlight")
 (declare-function heroiclands-highlight-disable "heroiclands-highlight")
 (declare-function heroiclands-highlight-refresh "heroiclands-highlight")
@@ -378,12 +378,10 @@ whole constellation, results in one buffer."
       compilation-ask-about-save nil)
 (add-hook 'compilation-filter-hook #'ansi-color-compilation-filter)
 
-;;;; ------------------------------------------------- link-manifest completion
+;;;; ------------------------------------------------- link manifests
 
-;; Every package publishes a manifest mapping a canonical key
-;;   pkg-type-shortcode  ->  { path, name, uuid, doc }
-;; Completing `[[' against the UNION of those manifests is the one thing no
-;; per-repo tool has ever given this content tree.
+;; Manifests support the explicit key lookup command.  Eglot supplies
+;; completion inside content notes.
 
 (defvar heroiclands--manifest-cache nil)
 
@@ -435,19 +433,6 @@ wins -- an entry whose key prefix matches the manifest's own `package'."
              (length heroiclands--manifest-cache)
              (length (heroiclands--manifest-files))))
   heroiclands--manifest-cache)
-
-(defun heroiclands--annotate (key)
-  (when-let* ((row (assoc key heroiclands--manifest-cache)))
-    (concat "  " (or (nth 1 row) "") "  [" (or (nth 4 row) "?") "]")))
-
-(defun heroiclands-manifest-capf ()
-  "Complete a canonical key after `[['."
-  (when (looking-back "\\[\\[\\([^]]*\\)" (line-beginning-position))
-    (heroiclands-load-manifests)
-    (list (match-beginning 1) (point)
-          (mapcar #'car heroiclands--manifest-cache)
-          :annotation-function #'heroiclands--annotate
-          :exclusive 'no)))
 
 ;;;###autoload
 (defun heroiclands-find-by-key ()
@@ -520,15 +505,11 @@ Deliberately near-empty: the `C-c h' prefix is global, because its commands
 are about the constellation rather than about any one buffer.")
 
 (defun heroiclands--mode-setup ()
-  "Install this buffer's completions and wikilink machinery.
+  "Install this buffer's wikilink machinery.
 
 Each feature is guarded, so the mode works with whichever of the package's
 files have been loaded rather than requiring all of them."
   (setq-local compile-command "npm run build:types")
-  (when (fboundp 'heroiclands-manifest-capf)
-    (add-hook 'completion-at-point-functions #'heroiclands-manifest-capf nil t))
-  (when (fboundp 'heroiclands-goto-capf)
-    (add-hook 'completion-at-point-functions #'heroiclands-goto-capf nil t))
   (when (fboundp 'heroiclands-goto--arm)
     (add-hook 'post-self-insert-hook #'heroiclands-goto--arm nil t))
   (when (fboundp 'heroiclands-goto--close-link)
@@ -545,10 +526,8 @@ files have been loaded rather than requiring all of them."
 
 (defun heroiclands--mode-teardown ()
   "Remove what `heroiclands--mode-setup' installed."
-  (when (fboundp 'heroiclands-manifest-capf)
-    (remove-hook 'completion-at-point-functions #'heroiclands-manifest-capf t))
-  (when (fboundp 'heroiclands-goto-capf)
-    (remove-hook 'completion-at-point-functions #'heroiclands-goto-capf t))
+  (when (fboundp 'heroiclands-eglot--teardown-capf)
+    (heroiclands-eglot--teardown-capf))
   (when (fboundp 'heroiclands-goto--arm)
     (remove-hook 'post-self-insert-hook #'heroiclands-goto--arm t))
   (when (fboundp 'heroiclands-goto--close-link)
@@ -562,20 +541,20 @@ files have been loaded rather than requiring all of them."
 (define-minor-mode heroiclands-mode
   "Author HeroicLands content notes.
 
-Turns this buffer into one that knows the content tree: wikilink
-completion by name or address, canonical rewriting when a link is closed,
-and completion over the published link manifests.
+Turns this buffer into one that knows the content tree: indexed wikilink
+completion through Eglot and canonical rewriting when a link is closed.
 
 \\<heroiclands-mode-map>
 While the mode is on, in a content note:
 
-  `[['   starts a wikilink and opens completion — by anchor, by address,
-         or by name, chosen from what you type.
+  `[['   starts a wikilink and opens server completion by name, alias,
+         shortcode, or Address; `#' offers anchors.
   `]]'   closes it and rewrites it into canonical form, or reports why it
          cannot: an unknown note, an ambiguous name, a missing anchor.
 
 Both apply only to a link being *entered*; editing a settled link leaves
-it alone.
+it alone.  The selected server item supplies the exact target and display
+name for rewriting.
 
 The commands themselves live on the global `C-c h' prefix, which is not
 part of this mode — see Info node `(heroiclands)Quick Reference'.  The
