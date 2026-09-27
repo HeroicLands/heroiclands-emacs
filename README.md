@@ -44,14 +44,17 @@ link opens the note under its owning project's content tree when that
 project's private index is available. `C-c h ,` comes back.
 
 **Wikilinks you can see.** Each part of `[[address#anchor|display]]` is
-coloured by what it is — the address strongest, since it has to be exactly
-right and nobody can read it; the display half kept close to body text, since
-it *is* the prose. A link naming a note the index does not hold, or an anchor
-the note does not declare, is drawn broken with a wavy underline, so a dead
-link shows while you write it rather than at build time.
+coloured by its syntax: the Address is strongest, the display text stays
+close to body text, and brackets recede. Colouring works without an index.
 
-A target in a package whose index isn't loaded is never marked broken — not
-held is not the same as not there.
+**Reference validation.** Eglot receives located diagnostics from the pinned
+content language server and shows them through Flymake. Bad Addresses,
+anchors, image embeds, and declared frontmatter Addresses have one finding
+at their source position. `M-x flymake-show-buffer-diagnostics` lists them;
+`M-n` and `M-p` move between them when Flymake's diagnostic navigation is
+active. A foreign package whose index is unavailable is reported as
+unavailable rather than as a broken link. Build checks still validate the
+published output.
 
 **Live note preview.** `C-c h p` opens a separate browser window for the
 current note. The page updates three seconds after the last edit, including
@@ -114,7 +117,7 @@ line is what actually turns the mode on:
 (require 'heroiclands-server)     ; pinned server installation and index cache
 (require 'heroiclands-index)      ; the content index
 (require 'heroiclands-goto)       ; wikilink normalization and following
-(require 'heroiclands-highlight)  ; colouring, and marking dead links
+(require 'heroiclands-highlight)  ; wikilink syntax colouring
 (require 'heroiclands-preview)    ; live browser preview
 (require 'heroiclands-hbs)        ; Handlebars helper completion
 (require 'heroiclands-eglot)      ; indexed completion and Xref through Eglot
@@ -216,14 +219,14 @@ The **content index** decides which capabilities are *live*:
 | Eglot completion after `[[` | Colouring wikilinks by part |
 | Rewriting a link on `]]` | Live browser preview |
 | `C-c h .` following a link | `C-c h i`, which builds one |
-| Marking a link broken | The `C-c h` repository commands |
+| Eglot and Flymake diagnostics | The `C-c h` repository commands |
 
 Each behaves differently without one, deliberately: `C-c h .` refuses and names
 the command that builds an index; Eglot completion offers nothing until its
 server has an index; `]]`
 leaves the link as typed and **says so** once per buffer, because silence there
 is the worst outcome — you asked for a check and would get neither the check nor
-a reason; and colouring continues without the verdict.
+a reason; and syntax colouring continues without the server.
 
 So the mode still turns on without an index — withholding it would take away
 the preview and the colouring, which don't need one, and leave no way to see
@@ -232,7 +235,7 @@ it in a buffer with no index tells you once where to get one.
 
 `C-c h i` refreshes the current project and re-examines open content buffers.
 The server also rebuilds on startup and after saves; Emacs notices published
-private indexes and refreshes the lighter and broken-link marking.
+private indexes and refreshes the lighter and indexed navigation.
 
 ### Where it turns itself on
 
@@ -474,15 +477,14 @@ A wikilink may name a note in another package by its canonical
 `sohl-note-being-aurochs` cited from a
 `thalorna` note. Resolving one means holding that package's index too, so
 `heroiclands-index-projects` selects the foreign projects for Eglot and
-existing indexes for Emacs link following and highlighting. It defaults to
+existing indexes for Emacs link following. It defaults to
 every project that `heroiclands-project-roots` finds. Eglot builds a missing
 foreign index when completion, search, definition, or references need it.
 Restart Eglot in open content buffers after changing the selection.
 
-A target belonging to a package that **isn't** loaded is never marked broken.
-Not held is not the same as not there, and a colour that guesses is a colour
-nobody trusts. Only a link whose package *is* loaded, or a bare local slug,
-can be reported dead.
+A foreign package whose index is unavailable is shown as unavailable by
+Flymake. The server does not claim that its targets are broken without an
+index to check. Syntax colouring still works while Eglot is unavailable.
 
 ## Configuration
 
@@ -496,7 +498,6 @@ can be reported dead.
 | `heroiclands-project-roots` | `nil` | Where to look for projects; nil = no discovered projects |
 | `heroiclands-project-search-depth` | `3` | How far below a root to search |
 | `heroiclands-index-projects` | `all` | Foreign projects for Eglot and local link resolution |
-| `heroiclands-highlight-check-targets` | `t` | Mark links the index says are dead |
 | `heroiclands-preview-idle-delay` | `3` | Idle seconds before rendering |
 | `heroiclands-preview-new-window` | `t` | Request a separate browser window |
 | `heroiclands-index-jq` | `jq` | The jq executable |

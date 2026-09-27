@@ -97,8 +97,8 @@ below documents itself in @kbd{C-h f}, and this manual is @kbd{C-c h ?}.
 @noindent
 And while typing in a note: @code{[[} starts a wikilink and opens
 completion; @code{]]} closes it and rewrites it into canonical form, or
-says why it cannot.  A link the index says is dead is coloured as broken
-while you write it (@pxref{Seeing Them}).
+says why it cannot.  Eglot shows located reference findings through Flymake
+while you write (@pxref{Seeing Them}).
 
 @section The habit worth keeping
 
@@ -143,7 +143,7 @@ answer from:
 @item Eglot completion after @code{[[} @tab Colouring wikilinks by part
 @item Rewriting a link on @code{]]} @tab Live browser preview
 @item @kbd{C-c h .} following a link @tab @kbd{C-c h i}, which builds one
-@item Marking a link broken @tab The @kbd{C-c h} repository commands
+@item Eglot and Flymake diagnostics @tab The @kbd{C-c h} repository commands
 @end multitable
 
 @noindent
@@ -155,7 +155,7 @@ Each of those behaves differently without one, and deliberately so:
 @item @code{]]} @tab Leaves the link as typed and @emph{says so}, once per
 buffer.  Silence would be the worst outcome available: the author asked for
 a check and would get neither the check nor a reason.
-@item Colouring @tab Continues, minus the verdict.
+@item Colouring @tab Continues without Eglot or an index.
 @end multitable
 
 So the mode still turns on without an index --- withholding it would take
@@ -165,7 +165,7 @@ reads @samp{HL?} rather than @samp{HL}, and enabling the mode in a buffer
 with no index says once where to get one.
 
 @kbd{C-c h i} then rebuilds it and re-examines every open content buffer,
-so the lighter and the broken-link marking both catch up without
+so the lighter and indexed navigation both catch up without
 reopening anything.
 
 @section It usually turns itself on
@@ -560,8 +560,8 @@ produces an identical file.  A rebuild is never noise.
 The server rebuilds the current project at startup and after saves.  Emacs
 notices a complete private index publication and refreshes open buffers.
 An Eglot foreign search, definition, or reference builds missing foreign
-indexes on demand.  Emacs link following and highlighting read only
-complete indexes and do not start foreign builds.
+indexes on demand.  Emacs link following reads only complete indexes and
+does not start foreign builds.
 Use @kbd{C-c h i} when a result looks stale or a rebuild fails.
 
 @section Navigating through Eglot
@@ -712,19 +712,22 @@ link would make the sentence harder to read rather than easier.
 @item @strong{brackets} @tab Structure, so they recede.
 @end multitable
 
-@subsection A colour that means something
+@subsection Validation through Flymake
 
-@vindex heroiclands-highlight-check-targets
+@cindex Flymake
+@cindex diagnostics
 
-A link naming a note the index does not hold, or an anchor the note does
-not declare, is drawn as @strong{broken} --- a warning colour with a wavy
-underline.  So a dead link is visible while it is being written, rather
-than at build time.
+Eglot receives reference diagnostics from the pinned content language
+server and shows them through Flymake.  An invalid Address, anchor, image
+embed, or declared frontmatter Address has one finding at its source
+position.  @kbd{M-x flymake-show-buffer-diagnostics} lists the findings.
+The server updates them after edits and saves, so an old finding disappears
+when its source becomes valid.
 
-That is the point of highlighting here rather than adding a generic
-wikilink pattern: the colour carries a fact, not a category.  Set
-@code{heroiclands-highlight-check-targets} to @code{nil} for plain
-colouring with no verdict.
+The colour of a wikilink describes its syntax only.  The language server
+owns correctness, using saved indexes and the open buffer text.  A build
+also checks the published output; it may report findings outside the open
+buffer or under a different publication configuration.
 
 @subsection A package name is not a directory name
 
@@ -759,20 +762,13 @@ package's index too, so @code{heroiclands-index-projects} says which to
 read; it defaults to every project found under
 @code{heroiclands-project-roots}.  The language server builds a selected
 foreign project's index when Eglot completion or navigation needs it.
-Emacs link following and highlighting use its index when a complete one
-exists.
+Emacs link following uses its index when a complete one exists.
 
-A target whose package is @emph{not} loaded is never marked broken.  Only
-a bare local slug, or a canonical address in a package actually held, can
-be reported dead.  A colour that guesses is a colour nobody trusts, and
-the first false alarm spends that trust.
-
-@subsection Without an index
-
-The colouring is a pure reading of the link's own structure, so it works
-with no index at all --- what stops is the verdict.  Nothing is reported
-broken, the lighter reads @samp{HL?}, and
-@kbd{C-c h i} puts both back.  @xref{The Mode}.
+A foreign package whose index is unavailable is reported as unavailable
+by Flymake.  The server does not claim that its targets are broken without
+an index to check.  Syntax colouring remains available without Eglot or an
+index; the lighter reads @samp{HL?} until the local index is ready.
+@xref{The Mode}.
 
 @node Live Preview
 @chapter Live Preview
