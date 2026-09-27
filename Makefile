@@ -3,11 +3,11 @@
 EMACS ?= emacs
 MAKEINFO ?= makeinfo
 
-LISP := heroiclands.el heroiclands-hbs.el heroiclands-dataview.el \
+LISP := heroiclands.el heroiclands-hbs.el heroiclands-preview.el heroiclands-dataview.el \
         heroiclands-server.el heroiclands-index.el heroiclands-goto.el heroiclands-highlight.el \
         heroiclands-eglot.el
 
-.PHONY: all info compile check hooks clean
+.PHONY: all info compile check check-preview hooks clean
 
 all: info
 
@@ -36,11 +36,15 @@ compile:
 ## quoted argument is passed through to Emacs by some makes, which then reads a
 ## bare backslash as a variable and fails with `void-variable \'.
 check:
-	$(EMACS) -Q --batch -L . --eval '(mapc (lambda (f) (require (intern f))) (list "heroiclands" "heroiclands-hbs" "heroiclands-dataview" "heroiclands-server" "heroiclands-index" "heroiclands-goto" "heroiclands-highlight" "heroiclands-eglot"))' --eval '(message "all features load")'
+	$(EMACS) -Q --batch -L . --eval '(mapc (lambda (f) (require (intern f))) (list "heroiclands" "heroiclands-hbs" "heroiclands-preview" "heroiclands-dataview" "heroiclands-server" "heroiclands-index" "heroiclands-goto" "heroiclands-highlight" "heroiclands-eglot"))' --eval '(message "all features load")'
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-eglot-test.el -f ert-run-tests-batch-and-exit
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-goto-test.el -f ert-run-tests-batch-and-exit
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-project-test.el -f ert-run-tests-batch-and-exit
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-server-test.el -f ert-run-tests-batch-and-exit
+	$(EMACS) -Q --batch -L . -l tests/heroiclands-preview-test.el -f ert-run-tests-batch-and-exit
+
+check-preview:
+	node --test tests/preview-browser.mjs
 
 ## Activate the committed git hooks for this checkout.
 ##

@@ -42,7 +42,7 @@
 ;; Optional siblings — the `C-c h' map binds them when they are loaded.
 (declare-function heroiclands-hbs-describe "heroiclands-hbs")
 (declare-function heroiclands-hbs-refresh "heroiclands-hbs")
-(declare-function heroiclands-dataview-clear "heroiclands-dataview")
+(declare-function heroiclands-preview-mode "heroiclands-preview")
 (declare-function heroiclands-goto--arm "heroiclands-goto")
 (declare-function heroiclands-goto--close-link "heroiclands-goto")
 (declare-function heroiclands-eglot--teardown-capf "heroiclands-eglot")
@@ -532,8 +532,9 @@ files have been loaded rather than requiring all of them."
     (remove-hook 'post-self-insert-hook #'heroiclands-goto--arm t))
   (when (fboundp 'heroiclands-goto--close-link)
     (remove-hook 'post-self-insert-hook #'heroiclands-goto--close-link t))
-  (when (fboundp 'heroiclands-dataview-clear)
-    (heroiclands-dataview-clear))
+  (when (and (fboundp 'heroiclands-preview-mode)
+             (bound-and-true-p heroiclands-preview-mode))
+    (heroiclands-preview-mode -1))
   (when (fboundp 'heroiclands-highlight-disable)
     (heroiclands-highlight-disable)))
 
@@ -562,7 +563,7 @@ ones about this buffer are:
 
   \\[heroiclands-goto-follow]   follow the wikilink at point
   \\[heroiclands-goto-back]   jump back
-  \\[heroiclands-dataview-mode]   toggle content-table previews
+  \\[heroiclands-preview-toggle]   toggle the live browser preview
   \\[heroiclands-index-rebuild]   refresh this project's content index
   \\[heroiclands-index-query]   query it with jq
 
@@ -654,8 +655,8 @@ Produced by `make info' from `doc/heroiclands.texi'; see the README.")
 (defun heroiclands-help ()
   "Open the HeroicLands content-authoring manual.
 
-Covers the content index, wikilink completion and normalization, content
-tables, and what to do when something does not answer.  The same manual is
+Covers the content index, wikilink completion and normalization, live
+preview, and what to do when something does not answer.  The same manual is
 listed in `C-h i' under Emacs, and every command below documents itself in
 `C-h f'.
 
