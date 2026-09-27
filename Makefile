@@ -30,12 +30,12 @@ compile:
 	  --eval '(setq byte-compile-error-on-warn t)' \
 	  -f batch-byte-compile $(LISP)
 
-## Load every file in a clean Emacs, which catches a broken require or defun.
+## Compile current sources before loading them in a clean Emacs.
 ##
 ## The eval form is kept on ONE line deliberately: a `\'-continuation inside a
 ## quoted argument is passed through to Emacs by some makes, which then reads a
 ## bare backslash as a variable and fails with `void-variable \'.
-check:
+check: compile
 	$(EMACS) -Q --batch -L . --eval '(mapc (lambda (f) (require (intern f))) (list "heroiclands" "heroiclands-hbs" "heroiclands-preview" "heroiclands-dataview" "heroiclands-server" "heroiclands-index" "heroiclands-goto" "heroiclands-highlight" "heroiclands-eglot"))' --eval '(message "all features load")'
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-eglot-test.el -f ert-run-tests-batch-and-exit
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-goto-test.el -f ert-run-tests-batch-and-exit

@@ -150,7 +150,7 @@ half-finished diagnosis.
 
 There is no content build here, so "done" is what `make` asserts:
 
-- `make check` — every feature loads in a clean Emacs
+- `make check` — byte-compiles current sources and loads every feature in a clean Emacs
 - `make compile` — byte-compiles without warnings (warnings are failures in CI)
 - `make info` — the manual builds
 

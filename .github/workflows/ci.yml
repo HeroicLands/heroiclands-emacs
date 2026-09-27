@@ -38,17 +38,8 @@ jobs:
             - name: Install Texinfo
               run: sudo apt-get update && sudo apt-get install -y texinfo
 
-            - name: Load every feature in a clean Emacs
+            - name: Compile and test current sources
               run: make check
-
-            - name: Byte-compile, treating warnings as failures
-              run: |
-                  emacs -Q --batch -L . \
-                    --eval '(setq byte-compile-error-on-warn t)' \
-                    -f batch-byte-compile \
-                    heroiclands.el heroiclands-hbs.el heroiclands-preview.el heroiclands-dataview.el \
-                    heroiclands-server.el heroiclands-index.el heroiclands-goto.el \
-                    heroiclands-highlight.el heroiclands-eglot.el
 
             - name: Build the manual
               run: make info
