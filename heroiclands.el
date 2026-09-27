@@ -3,7 +3,7 @@
 ;; Author: Tom Rodriguez <tom@toastysailor.com>
 ;; Maintainer: Tom Rodriguez <tom@toastysailor.com>
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1"))
+;; Package-Requires: ((emacs "31.1"))
 ;; Keywords: tools, convenience, wp
 ;; URL: https://github.com/HeroicLands/heroiclands-emacs
 ;; SPDX-License-Identifier: GPL-3.0-or-later
