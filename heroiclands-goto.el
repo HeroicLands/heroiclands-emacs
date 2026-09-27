@@ -276,14 +276,18 @@ unterminated wikilink to test for.")
 
 (defun heroiclands-goto--remember-selection (item typed)
   "Remember the exact target of the server completion ITEM for TYPED text."
-  (when-let* (((heroiclands-goto--armed-p))
+  (when-let* (((markerp heroiclands-goto--entry))
+              (entry (marker-position heroiclands-goto--entry))
+              ((eq (marker-buffer heroiclands-goto--entry) (current-buffer)))
+              ((>= (point) entry))
+              ((= (line-number-at-pos (point)) (line-number-at-pos entry)))
               (data (plist-get item :data))
               (address (plist-get (plist-get item :textEdit) :newText))
               (canonical (plist-get data :address))
               (display (plist-get data :display)))
     (setq heroiclands-goto--selected
           (list :address address :canonical canonical :display display
-                :typed typed :entry (marker-position heroiclands-goto--entry)))))
+                :typed typed :entry entry))))
 
 (defun heroiclands-goto--disarm ()
   "Forget the link being entered."
@@ -320,12 +324,12 @@ unterminated wikilink to test for.")
 ;;;; ------------------------------------------- closing a link canonically
 
 (defcustom heroiclands-goto-canonicalize-on-close t
-  "Whether typing `]]' rewrites the link it closes into canonical form.
+  "Whether a completed wikilink receives canonical Address and display text.
 
 With this on, `[[Aurochs]]' becomes `[[being-aurochs|Aurochs]]' the moment it
-is closed, and a link naming no note — or naming several — raises an error
-instead of being left to fail at build time.  Set it to nil to type links
-without that check."
+is closed or its paired closing brackets receive a server completion.  A link
+naming no note — or naming several — raises an error when typed closed.  Set
+this to nil to type links without that check."
   :type 'boolean :group 'heroiclands-goto)
 
 (defun heroiclands-goto--name-matches (text index)
@@ -396,6 +400,26 @@ both the shortest unambiguous Address and its display name."
             (delete-region open (point))
             (insert (format "[[%s|%s]]" raw display)))
           t)))))
+
+(defun heroiclands-goto--finish-paired-selection ()
+  "Finish a selected wikilink whose closing brackets are already present."
+  (when (and heroiclands-goto-canonicalize-on-close
+             heroiclands-goto--selected
+             (markerp heroiclands-goto--entry)
+             (marker-position heroiclands-goto--entry))
+    (let* ((entry (marker-position heroiclands-goto--entry))
+           (before (point))
+           (paired-ahead (looking-at-p "]]")))
+      (when (or paired-ahead
+                (and (>= (point) (+ (point-min) 2))
+                     (equal "]]" (buffer-substring-no-properties
+                                  (- (point) 2) (point)))))
+        (when paired-ahead (forward-char 2))
+        (if (heroiclands-goto--apply-selection heroiclands-goto--selected entry)
+            (progn
+              (heroiclands-goto--disarm)
+              (setq heroiclands-goto--selected nil))
+          (when paired-ahead (goto-char before)))))))
 
 (defun heroiclands-goto--close-link ()
   "Canonicalize the wikilink just closed by typing `]]'.

@@ -90,7 +90,8 @@ Address fields use the same server candidates.  See Info node
              (funcall exit candidate status)
              (when (and typed (memq status '(finished exact)) item)
                (with-current-buffer buffer
-                 (heroiclands-goto--remember-selection item typed))))))
+                 (heroiclands-goto--remember-selection item typed)
+                 (heroiclands-goto--finish-paired-selection))))))
         (plist-put (nthcdr 3 capf) :exclusive 'no)
         capf))))
 

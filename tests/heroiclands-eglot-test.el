@@ -153,6 +153,37 @@
           (should (equal (buffer-string)
                          "[[sohl-being-bctrncml|Xerathian Bactrian Camel]]")))))))
 
+(ert-deftest heroiclands-eglot-capf-finishes-a-paired-wikilink ()
+  (dolist (point-after-pair '(nil t))
+    (with-temp-buffer
+      (insert "[[bao]]")
+      (backward-char 2)
+      (setq heroiclands-goto--entry (copy-marker (+ (point-min) 2)))
+      (let* ((address "skill-baobabbombwesprt")
+             (item `(:label "Baobab Spirit Power"
+                      :textEdit (:newText ,address)
+                      :data (:address "thalorna-sohl-skill-baobabbombwesprt"
+                             :display "Baobab Spirit Power")))
+             (candidate (propertize "Baobab Spirit Power" 'eglot--lsp-item item)))
+        (cl-letf (((symbol-function 'heroiclands-eglot--content-buffer-p)
+                   (lambda () t))
+                  ((symbol-function 'eglot-managed-p) (lambda () t))
+                  ((symbol-function 'eglot-completion-at-point)
+                   (lambda ()
+                     (list (+ (point-min) 2) (point) (list candidate)
+                           :exit-function
+                           (lambda (_candidate _status)
+                             (delete-region (+ (point-min) 2) (point))
+                             (insert address)
+                             (when point-after-pair (forward-char 2)))))))
+          (let ((capf (heroiclands-eglot-capf)))
+            (funcall (plist-get (nthcdr 3 capf) :exit-function)
+                     candidate 'finished)
+            (should (equal (buffer-string)
+                           "[[skill-baobabbombwesprt|Baobab Spirit Power]]"))
+            (should-not heroiclands-goto--entry)
+            (should-not heroiclands-goto--selected)))))))
+
 (ert-deftest heroiclands-eglot-capf-keeps-substring-results ()
   (with-temp-buffer
     (insert "[[camel")

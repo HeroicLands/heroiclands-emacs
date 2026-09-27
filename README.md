@@ -31,6 +31,9 @@ Typing `]]` rewrites what you entered into canonical form:
 [[being-aurochs#dossier]]  → [[being-aurochs#dossier|Aurochs]]
 ```
 
+When Emacs has already inserted the closing `]]` as a pair, accepting a
+completion adds the display text immediately and leaves point after the link.
+
 Selecting an exact alias keeps that alias as display text. A selected result
 keeps its server supplied target even when another note shares its source file.
 When you type a name without choosing a completion, `]]` reports an unknown
