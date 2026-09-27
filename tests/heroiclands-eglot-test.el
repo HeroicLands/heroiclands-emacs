@@ -28,6 +28,7 @@
                          "shortcode:bctrncml" "type:being"
                          "all:name:camel" "package:thalorna name:camel"
                          "package:unconfigured name:camel")))))))
+
 (ert-deftest heroiclands-eglot-enables-flymake-with-server-diagnostics ()
   (with-temp-buffer
     (let (enabled)
