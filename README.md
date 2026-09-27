@@ -10,14 +10,17 @@ lists what is there.
 
 ## What it gives you
 
-**Wikilinks that cannot be wrong.** A wikilink names a note by its address —
-`being-aurochs` — which is the half that has to be exact and the half nobody
-remembers. Typing `[[` completes on the *name* instead:
+**Wikilinks with indexed completion.** A wikilink names a note by its Address.
+The pinned content language server searches saved names, aliases, shortcodes,
+and Addresses across the current project and selected foreign projects.
+Typing `[[camel` can offer both Bactrian Camel and Xerathian Bactrian Camel;
+matches can occur anywhere in a name or Address. Eglot inserts the shortest
+Address that still identifies the selected package, system, and target.
 
 ```
-[[Bactri            → being-bctrncml — Bactrian Camel
-[[kurbul            → armorgear-k34hlm — Kûrbúl ¾-Helm (Kurbul 3/4-Helm)
-[[Killer            → Killer Whale — being-orca  [being -> Orca]
+[[camel             → Bactrian Camel — sohl-note-being-bctrncml
+[[camel             → Xerathian Bactrian Camel — thalorna-sohl-being-bctrncml
+[[Killer Whale      → Orca, displayed as Killer Whale
 ```
 
 Typing `]]` rewrites what you entered into canonical form:
@@ -28,10 +31,10 @@ Typing `]]` rewrites what you entered into canonical form:
 [[being-aurochs#dossier]]  → [[being-aurochs#dossier|Aurochs]]
 ```
 
-An alias keeps *your* wording rather than being replaced by the canonical name.
-Anything that is not exactly one note is an error raised where you typed it —
-unknown note, ambiguous name, or an anchor the note does not declare — rather
-than a broken link that surfaces in a build days later.
+Selecting an exact alias keeps that alias as display text. A selected result
+keeps its server supplied target even when another note shares its source file.
+When you type a name without choosing a completion, `]]` reports an unknown
+or ambiguous name instead of choosing a target for you.
 
 `C-c h .` follows a link, landing on the anchor's line. A package-qualified
 link opens the note under its owning project's content tree when that
@@ -104,11 +107,11 @@ line is what actually turns the mode on:
 (require 'heroiclands)            ; the constellation, and the C-c h map
 (require 'heroiclands-server)     ; pinned server installation and index cache
 (require 'heroiclands-index)      ; the content index
-(require 'heroiclands-goto)       ; wikilink completion and normalization
+(require 'heroiclands-goto)       ; wikilink normalization and following
 (require 'heroiclands-highlight)  ; colouring, and marking dead links
 (require 'heroiclands-dataview)   ; content-table previews
 (require 'heroiclands-hbs)        ; Handlebars helper completion
-(require 'heroiclands-eglot)      ; Xref navigation through Eglot
+(require 'heroiclands-eglot)      ; indexed completion and Xref through Eglot
 
 ;; Where your content repositories live. Either a directory holding them,
 ;; or the projects themselves, or a mixture — see below.
@@ -204,14 +207,14 @@ The **content index** decides which capabilities are *live*:
 
 | Needs the index | Works without it |
 | --- | --- |
-| Completion after `[[` | Colouring wikilinks by part |
+| Eglot completion after `[[` | Colouring wikilinks by part |
 | Rewriting a link on `]]` | Content-table previews |
 | `C-c h .` following a link | `C-c h i`, which builds one |
 | Marking a link broken | The `C-c h` repository commands |
 
 Each behaves differently without one, deliberately: `C-c h .` refuses and names
-the command that builds an index; completion offers nothing (a completion
-function that raised an error would be one nobody could type through); `]]`
+the command that builds an index; Eglot completion offers nothing until its
+server has an index; `]]`
 leaves the link as typed and **says so** once per buffer, because silence there
 is the worst outcome — you asked for a check and would get neither the check nor
 a reason; and colouring continues without the verdict.
@@ -461,12 +464,13 @@ nothing, and the project stays selectable by directory or path.
 ### Links to other packages
 
 A wikilink may name a note in another package by its canonical
-`<package>-<type>-<shortcode>` address — `sohl-being-aurochs` cited from a
+`<package>-<system>-<type>-<shortcode>` Address —
+`sohl-note-being-aurochs` cited from a
 `thalorna` note. Resolving one means holding that package's index too, so
 `heroiclands-index-projects` selects the foreign projects for Eglot and
-existing indexes for Emacs link completion and highlighting. It defaults to
+existing indexes for Emacs link following and highlighting. It defaults to
 every project that `heroiclands-project-roots` finds. Eglot builds a missing
-foreign index when a foreign search, definition, or reference needs it.
+foreign index when completion, search, definition, or references need it.
 Restart Eglot in open content buffers after changing the selection.
 
 A target belonging to a package that **isn't** loaded is never marked broken.
@@ -523,10 +527,11 @@ what keeps `C-h f` and the manual joined up.
 
 | File | What it does |
 | --- | --- |
-| `heroiclands.el` | The constellation: projects, ripgrep, compile, link-manifest completion, and the `C-c h` map |
+| `heroiclands.el` | The constellation: projects, ripgrep, compile, and the `C-c h` map |
 | `heroiclands-server.el` | Pinned server installation and private index validation |
 | `heroiclands-index.el` | Refreshing and querying the content index |
-| `heroiclands-goto.el` | Wikilink completion, normalization, and following |
+| `heroiclands-goto.el` | Wikilink normalization and following |
+| `heroiclands-eglot.el` | Indexed completion and Xref through the pinned server |
 | `heroiclands-dataview.el` | Content-table previews |
 | `heroiclands-dataview.mjs` | Renders a note's queries through the build's expander |
 | `heroiclands-hbs.el` | Handlebars helper completion in `.hbs` templates |

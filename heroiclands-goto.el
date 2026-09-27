@@ -129,25 +129,6 @@ index last, so a bare slug published by two packages means the local note."
   "The address → record table of the combined index in FILES."
   (plist-get (heroiclands-goto--index files) :table))
 
-(defun heroiclands-goto--address-prefix-p (typed index)
-  "Whether TYPED reads as the start of an address, per INDEX.
-
-The test is the one an author would state: a known content type, then a
-separator — `weapongear-', `being/', or the package-qualified
-`sohl-weapongear-'.  Anything else is taken for a name, which is what makes
-the two completion modes predictable rather than a guess about intent."
-  (let* ((types (plist-get index :types))
-         (package (plist-get index :package))
-         (s (downcase typed))
-         ;; A leading package segment is optional, and stripped before the
-         ;; type is looked for — exactly as `readQualifier' does.
-         (rest (if (and package (string-prefix-p (concat (downcase package) "-") s))
-                   (substring s (1+ (length package)))
-                 s)))
-    (and (string-match "\\`\\([^-/]+\\)[-/]" rest)
-         (gethash (match-string 1 rest) types)
-         t)))
-
 (defun heroiclands-goto-link-at-point ()
   "The wikilink target at point, or nil.
 
@@ -265,213 +246,9 @@ See Info node `(heroiclands)Following a Link'."
   (xref-go-back))
 
 
-;;;; ------------------------------------------------------ completion
-
-(defun heroiclands-goto--records (index)
-  "Every record in INDEX, deduplicated by note."
-  (let (seen out)
-    (maphash (lambda (_k record)
-               (let ((path (plist-get (plist-get record :file) :path)))
-                 (unless (member path seen)
-                   (push path seen)
-                   (push record out))))
-             (heroiclands-goto--table index))
-    (nreverse out)))
-
-(defconst heroiclands-goto-separator " — "
-  "Separates an address from its readable name in a completion candidate.
-
-The name rides in the candidate rather than in an annotation so that it is
-*matchable*: a shortcode like `bctrncml' is not something anyone recalls, but
-\"bactrian\" is.  `heroiclands-goto--exit' strips it again on insertion, so the
-buffer only ever receives the address.  Same separator, and same reasoning, as
-`heroiclands-find-by-key'.")
-
 (defun heroiclands-goto--fold (s)
   "Reduce S to letters and digits, lowercased, for an is-this-the-same test."
   (replace-regexp-in-string "[^a-z0-9]" "" (downcase s)))
-
-(defun heroiclands-goto--tag (display address)
-  "DISPLAY, carrying ADDRESS as the thing to insert when it is chosen."
-  (propertize display 'heroiclands-address address))
-
-(defun heroiclands-goto--dim (text)
-  "TEXT, faced as completion commentary."
-  (propertize text 'face 'completions-annotations))
-
-(defun heroiclands-goto--candidate (key name &optional ascii)
-  "Render KEY with its readable NAME, when NAME says anything KEY does not.
-
-The name half is faced as an annotation, so it reads as commentary even
-though it is part of the string being matched.
-
-ASCII is the index's `nameAscii' — NAME reduced to typeable characters.  It
-is appended in parentheses only when it differs from NAME, so a name written
-in the setting's orthography is reachable from a keyboard."
-  (heroiclands-goto--tag
-   (if (or (null name)
-           (not (stringp name))
-           (string-empty-p name)
-           ;; A name that is only the key respelled adds nothing — an anchor
-           ;; `dossier' titled "Dossier" is the common case.
-           (equal (heroiclands-goto--fold name) (heroiclands-goto--fold key)))
-       key
-     (concat key
-             (heroiclands-goto--dim
-              (concat heroiclands-goto-separator name
-                      (if (and (stringp ascii) (not (equal ascii name)))
-                          (format " (%s)" ascii)
-                        "")))))
-   key))
-
-(defun heroiclands-goto--name-candidates (record)
-  "Completion candidates for RECORD: its name, and each of its aliases.
-
-An alias is the name a reader is at least as likely to reach for as the
-canonical one — `Killer Whale' for an orca — so it earns a candidate of its
-own rather than being hidden behind the primary name.  An alias candidate
-names where it leads (`[being -> Orca]'), so choosing one is never a guess
-about which note is meant.
-
-The typeable form leads in every case, so the candidate matches what a
-keyboard produces; the address follows as commentary."
-  (let* ((address (plist-get (plist-get record :address) :slug))
-         (full (plist-get (plist-get record :name) :full))
-         (ascii (or (plist-get record :nameAscii) full))
-         (type (plist-get record :type))
-         (aliases (append (plist-get record :aliasesAscii) nil))
-         (out nil))
-    (when (and address ascii)
-      (push (heroiclands-goto--tag
-             (concat ascii
-                     (heroiclands-goto--dim
-                      (concat heroiclands-goto-separator address
-                              (if (and (stringp full) (not (equal full ascii)))
-                                  (format " (%s)" full)
-                                "")
-                              (if type (format "  [%s]" type) ""))))
-             address)
-            out))
-    (when address
-      (dolist (alias aliases)
-        (push (heroiclands-goto--tag
-               (concat alias
-                       (heroiclands-goto--dim
-                        (concat heroiclands-goto-separator address
-                                (format "  [%s%s]"
-                                        (or type "")
-                                        (if full (format " -> %s" full) "")))))
-               address)
-              out)))
-    (nreverse out)))
-
-(defun heroiclands-goto--address-of (candidate mode)
-  "The address CANDIDATE names, in completion MODE.
-
-Taken from the text property the candidate carries; the split is a fallback
-for a completion front-end that hands back a bare string.  MODE says which
-half the address is: `name' puts it after the separator, anything else
-before it."
-  (or (get-text-property 0 'heroiclands-address candidate)
-      (let ((parts (split-string (substring-no-properties candidate)
-                                 heroiclands-goto-separator)))
-        (if (eq mode 'name)
-            (car (split-string (or (cadr parts) "") " "))
-          (car parts)))))
-
-(defun heroiclands-goto--exit (start mode)
-  "Return an exit function replacing the region from START with the address.
-
-Completion inserts the whole candidate — which in either mode carries more
-than the address, for the reader's benefit — and this puts the buffer back
-to just the address, which is all a wikilink may contain.  MODE is passed to
-`heroiclands-goto--address-of'."
-  (lambda (candidate _status)
-    (let ((address (heroiclands-goto--address-of candidate mode)))
-      (delete-region start (point))
-      (insert address))))
-
-(defun heroiclands-goto-capf ()
-  "Complete a wikilink from the content index, by address or by name.
-
-Three modes, chosen by what has been typed:
-
-- After a `#', the anchors the named note declares — exactly those, since
-  the index holds its whole set.
-- When the text reads as the start of an address — a known content type
-  then a separator, as in `weapongear-' or `sohl-being/' — the addresses
-  under it.
-- Otherwise, the notes whose `nameAscii' matches, so a note is reachable by
-  what it is called rather than by a shortcode nobody recalls.  Typing
-  `[[' with nothing after it offers every note this way.
-
-Either way only the address is inserted.  Returns nil away from a wikilink,
-so it composes with the other completion sources.
-
-Completion arms when `[[' is typed and disarms when the link closes, so
-editing an existing link does not wake it.
-
-See Info node `(heroiclands)Completion'."
-  (when-let* (((heroiclands-goto--armed-p))
-              (root (ignore-errors (heroiclands-index--root)))
-              (files (heroiclands-index-files root))
-              (open (save-excursion
-                      (save-restriction
-                        (narrow-to-region (line-beginning-position) (point))
-                        (search-backward "[[" nil t)))))
-    (progn
-      (let* ((start (+ open 2))
-             (typed (buffer-substring-no-properties start (point)))
-             (index (heroiclands-goto--index files))
-             (table (plist-get index :table))
-             (hash (string-match "#" typed)))
-        (cond
-         ;; Anchors of the note the address names.
-         (hash
-          (let* ((address (substring typed 0 hash))
-                 (record (gethash (heroiclands-goto--normalize address) table))
-                 (anchors (append (plist-get record :anchors) nil))
-                 (from (+ start hash 1)))
-            (list from (point)
-                  (mapcar (lambda (a)
-                            (heroiclands-goto--candidate
-                             (plist-get a :slug) (plist-get a :name)))
-                          anchors)
-                  :exit-function (heroiclands-goto--exit from 'anchor)
-                  :exclusive 'no)))
-
-         ;; A type and a separator: the author is spelling an address.
-         ((heroiclands-goto--address-prefix-p typed index)
-          (let (candidates)
-            (maphash
-             (lambda (key record)
-               (push (heroiclands-goto--candidate
-                      key
-                      (plist-get (plist-get record :name) :full)
-                      (plist-get record :nameAscii))
-                     candidates))
-             table)
-            (list start (point) (nreverse candidates)
-                  :exit-function (heroiclands-goto--exit start 'address)
-                  :exclusive 'no)))
-
-         ;; Anything else is a name.
-         (t
-          (let (seen candidates)
-            (maphash
-             (lambda (_key record)
-               ;; The table holds each record twice, under its slug and its
-               ;; canonical key; a note should be offered once.
-               (let ((path (plist-get (plist-get record :file) :path)))
-                 (unless (member path seen)
-                   (push path seen)
-                   (dolist (c (heroiclands-goto--name-candidates record))
-                     (push c candidates)))))
-             table)
-            (list start (point)
-                  (sort (nreverse candidates) #'string-lessp)
-                  :exit-function (heroiclands-goto--exit start 'name)
-                  :exclusive 'no))))))))
 
 ;;;; --------------------------------------------- when the machinery is live
 
@@ -494,6 +271,20 @@ The state has to be tracked rather than read off the buffer, because
 `[[' yields `[[]]'.  There is therefore no such thing as a textually
 unterminated wikilink to test for.")
 
+(defvar-local heroiclands-goto--selected nil
+  "Server completion item chosen for the link currently being entered.")
+
+(defun heroiclands-goto--remember-selection (item typed)
+  "Remember the exact target of the server completion ITEM for TYPED text."
+  (when-let* (((heroiclands-goto--armed-p))
+              (data (plist-get item :data))
+              (address (plist-get (plist-get item :textEdit) :newText))
+              (canonical (plist-get data :address))
+              (display (plist-get data :display)))
+    (setq heroiclands-goto--selected
+          (list :address address :canonical canonical :display display
+                :typed typed :entry (marker-position heroiclands-goto--entry)))))
+
 (defun heroiclands-goto--disarm ()
   "Forget the link being entered."
   (when (markerp heroiclands-goto--entry)
@@ -506,6 +297,7 @@ unterminated wikilink to test for.")
              (>= (point) 3)
              (equal "[[" (buffer-substring-no-properties (- (point) 2) (point))))
     (heroiclands-goto--disarm)
+    (setq heroiclands-goto--selected nil)
     ;; Insertion type nil: `electric-pair-mode' inserts the closing `]]'
     ;; at this very position, and a marker that advanced past it would sit
     ;; ahead of point and never look armed.
@@ -551,9 +343,9 @@ difference between an authored name and its ASCII form all stop mattering."
         (hits nil))
     (maphash
      (lambda (_key record)
-       (let ((path (plist-get (plist-get record :file) :path)))
-         (unless (member path seen)
-           (push path seen)
+       (let ((address (plist-get (plist-get record :address) :canonical)))
+         (unless (member address seen)
+           (push address seen)
            (let* ((full (plist-get (plist-get record :name) :full))
                   (ascii (plist-get record :nameAscii))
                   ;; Authored aliases and their ASCII forms are matched
@@ -582,18 +374,38 @@ difference between an authored name and its ASCII form all stop mattering."
      (plist-get index :table))
     hits))
 
+(defun heroiclands-goto--apply-selection (selected entry)
+  "Close the exact server-selected target in SELECTED, armed at ENTRY.
+
+Return non-nil when the selection belongs to this link.  The server supplied
+both the shortest unambiguous Address and its display name."
+  (when (and selected (equal entry (plist-get selected :entry)))
+    (when-let* ((open (save-excursion
+                        (save-restriction
+                          (narrow-to-region (line-beginning-position) (point))
+                          (search-backward "[[" nil t))))
+                (raw (buffer-substring-no-properties (+ open 2) (- (point) 2)))
+                (address (plist-get selected :address))
+                (display (plist-get selected :display)))
+      (let* ((hash (string-search "#" raw))
+             (pipe (string-search "|" raw))
+             (end (min (or hash (length raw)) (or pipe (length raw))))
+             (target (substring raw 0 end)))
+        (when (equal target address)
+          (unless pipe
+            (delete-region open (point))
+            (insert (format "[[%s|%s]]" raw display)))
+          t)))))
+
 (defun heroiclands-goto--close-link ()
   "Canonicalize the wikilink just closed by typing `]]'.
 
 Runs from `post-self-insert-hook'.  A link that already states its display
-text is left alone — the author chose it.  Otherwise the target is resolved,
-by address or by name, and the link is rewritten as
-`[[<address>|<name.full>]]'.
+text is left alone.  A selected server item supplies the exact Address and
+display name; otherwise the target is resolved from the available indexes.
 
-Anything that does not resolve to exactly one note is an error, and so is an
-anchor the note does not declare: the index knows the whole answer, so a link
-that cannot work is reported where it was written rather than surviving to
-fail in a build.
+An unknown or ambiguous target is reported at the link.  A missing anchor
+is reported when the note's index is available.
 
 See Info node `(heroiclands)Normalization'."
   (when (and heroiclands-goto-canonicalize-on-close
@@ -608,80 +420,84 @@ See Info node `(heroiclands)Normalization'."
              (>= (point) heroiclands-goto--entry))
     ;; The link is closed now either way — an error below must not leave the
     ;; machinery armed and fire again on the next keystroke.
-    (heroiclands-goto--disarm)
-    ;; Silence here would be the worst outcome available: the author typed
-    ;; `]]' expecting the link to be canonicalized and checked, and would get
-    ;; neither with nothing to say why. Said once per buffer rather than
-    ;; raised — a link that cannot be checked is not itself an error, and
-    ;; erroring on every close while drafting would be worse than saying
-    ;; nothing at all.
-    (when (and (ignore-errors (heroiclands-index--root))
-               (null (ignore-errors
-                       (heroiclands-index-files (heroiclands-index--root))))
-               (not heroiclands-goto--warned-no-index))
-      (setq heroiclands-goto--warned-no-index t)
-      (message "No content index — link left as typed, and not checked (%s)"
-               (substitute-command-keys "\\[heroiclands-index-rebuild]")))
-    (when-let* ((root (ignore-errors (heroiclands-index--root)))
-                (files (heroiclands-index-files root))
-                (open (save-excursion
-                        (save-restriction
-                          (narrow-to-region (line-beginning-position) (point))
-                          (search-backward "[[" nil t))))
-                (raw (buffer-substring-no-properties (+ open 2) (- (point) 2))))
-      ;; An author-chosen display half is not ours to replace.
-      (unless (or (string-search "|" raw) (string-empty-p (string-trim raw)))
-        (let* ((index (heroiclands-goto--index files))
-               (table (plist-get index :table))
-               (hash (string-search "#" raw))
-               (target (if hash (substring raw 0 hash) raw))
-               (anchor (and hash (substring raw (1+ hash))))
-               (direct (gethash (heroiclands-goto--normalize target) table))
-               ;; A direct address hit displays the note's own name; a name or
-               ;; alias hit displays the words the author actually typed.
-               (hits (if direct
-                         (list (cons direct
-                                     (plist-get (plist-get direct :name) :full)))
-                       (heroiclands-goto--name-matches target index))))
-          (cond
-           ((null hits)
-            (user-error "No note named or addressed `%s'" target))
-           ((cdr hits)
-            (user-error "`%s' names %d notes (%s) — say which"
-                        target (length hits)
-                        (string-join
-                         (seq-take (mapcar (lambda (h)
-                                             (plist-get (plist-get (car h) :address)
-                                                        :slug))
-                                           hits)
-                                   4)
-                         ", ")))
-           (t
-            (let* ((record (car (car hits)))
-                   (address (plist-get (plist-get record :address) :slug))
-                   (full (or (cdr (car hits))
-                             (plist-get (plist-get record :name) :full)
-                             address))
-                   (anchors (append (plist-get record :anchors) nil)))
-              (when anchor
-                (unless (seq-find (lambda (a)
-                                    (equal (downcase (plist-get a :slug))
-                                           (downcase anchor)))
-                                  anchors)
-                  (user-error "`%s' declares no anchor `%s' (it has: %s)"
-                              address anchor
-                              (if anchors
-                                  (mapconcat (lambda (a) (plist-get a :slug))
-                                             anchors ", ")
-                                "none"))))
-              (let ((replacement (format "[[%s%s|%s]]"
-                                         address
-                                         (if anchor (concat "#" anchor) "")
-                                         full)))
-                (unless (equal replacement
-                               (buffer-substring-no-properties open (point)))
-                  (delete-region open (point))
-                  (insert replacement)))))))))))
+    (let ((entry (marker-position heroiclands-goto--entry))
+          (selected heroiclands-goto--selected))
+      (heroiclands-goto--disarm)
+      (setq heroiclands-goto--selected nil)
+      (unless (heroiclands-goto--apply-selection selected entry)
+	;; Silence here would be the worst outcome available: the author typed
+	;; `]]' expecting the link to be canonicalized and checked, and would get
+	;; neither with nothing to say why. Said once per buffer rather than
+	;; raised — a link that cannot be checked is not itself an error, and
+	;; erroring on every close while drafting would be worse than saying
+	;; nothing at all.
+	(when (and (ignore-errors (heroiclands-index--root))
+		   (null (ignore-errors
+			   (heroiclands-index-files (heroiclands-index--root))))
+		   (not heroiclands-goto--warned-no-index))
+	  (setq heroiclands-goto--warned-no-index t)
+	  (message "No content index — link left as typed, and not checked (%s)"
+		   (substitute-command-keys "\\[heroiclands-index-rebuild]")))
+	(when-let* ((root (ignore-errors (heroiclands-index--root)))
+                    (files (heroiclands-index-files root))
+                    (open (save-excursion
+                            (save-restriction
+                              (narrow-to-region (line-beginning-position) (point))
+                              (search-backward "[[" nil t))))
+                    (raw (buffer-substring-no-properties (+ open 2) (- (point) 2))))
+	  ;; An author-chosen display half is not ours to replace.
+	  (unless (or (string-search "|" raw) (string-empty-p (string-trim raw)))
+            (let* ((index (heroiclands-goto--index files))
+		   (table (plist-get index :table))
+		   (hash (string-search "#" raw))
+		   (target (if hash (substring raw 0 hash) raw))
+		   (anchor (and hash (substring raw (1+ hash))))
+		   (direct (gethash (heroiclands-goto--normalize target) table))
+		   ;; A direct address hit displays the note's own name; a name or
+		   ;; alias hit displays the words the author actually typed.
+		   (hits (if direct
+                             (list (cons direct
+					 (plist-get (plist-get direct :name) :full)))
+			   (heroiclands-goto--name-matches target index))))
+              (cond
+               ((null hits)
+		(user-error "No note named or addressed `%s'" target))
+               ((cdr hits)
+		(user-error "`%s' names %d notes (%s) — say which"
+                            target (length hits)
+                            (string-join
+                             (seq-take (mapcar (lambda (h)
+						 (plist-get (plist-get (car h) :address)
+                                                            :slug))
+                                               hits)
+                                       4)
+                             ", ")))
+               (t
+		(let* ((record (car (car hits)))
+                       (address (plist-get (plist-get record :address) :slug))
+                       (full (or (cdr (car hits))
+				 (plist-get (plist-get record :name) :full)
+				 address))
+                       (anchors (append (plist-get record :anchors) nil)))
+		  (when anchor
+                    (unless (seq-find (lambda (a)
+					(equal (downcase (plist-get a :slug))
+                                               (downcase anchor)))
+                                      anchors)
+                      (user-error "`%s' declares no anchor `%s' (it has: %s)"
+				  address anchor
+				  (if anchors
+                                      (mapconcat (lambda (a) (plist-get a :slug))
+						 anchors ", ")
+                                    "none"))))
+		  (let ((replacement (format "[[%s%s|%s]]"
+                                             address
+                                             (if anchor (concat "#" anchor) "")
+                                             full)))
+                    (unless (equal replacement
+				   (buffer-substring-no-properties open (point)))
+                      (delete-region open (point))
+                      (insert replacement)))))))))))))
 
 ;; Installed by `heroiclands-mode', not by a hook of its own: one mode
 ;; owns this buffer's behaviour, so there is one thing to turn off.

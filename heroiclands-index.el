@@ -55,7 +55,7 @@ link is indistinguishable from a wrong one, so a package left out of the
 list would have its links reported broken rather than unknown.
 
 Eglot passes selected roots to the language server, which builds missing
-foreign indexes on first use.  Emacs link completion and highlighting read
+foreign indexes on first use.  Emacs link following and highlighting read
 only complete private indexes; reading does not build them.  The server
 refreshes the current project at startup and after saves;
 \\[heroiclands-index-rebuild] refreshes it on demand.  Restart Eglot after
