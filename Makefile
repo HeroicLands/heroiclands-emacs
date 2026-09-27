@@ -44,7 +44,7 @@ check:
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-preview-test.el -f ert-run-tests-batch-and-exit
 
 check-preview:
-	node --test tests/preview-browser.mjs
+	node --test tests/preview-browser.mjs tests/preview-infobox.mjs
 
 ## Activate the committed git hooks for this checkout.
 ##
