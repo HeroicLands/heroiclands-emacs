@@ -28,6 +28,20 @@
                          "shortcode:bctrncml" "type:being"
                          "all:name:camel" "package:thalorna name:camel"
                          "package:unconfigured name:camel")))))))
+(ert-deftest heroiclands-eglot-enables-flymake-with-server-diagnostics ()
+  (with-temp-buffer
+    (let (enabled)
+      (cl-letf (((symbol-function 'eglot-managed-p) (lambda () t))
+                ((symbol-function 'heroiclands-eglot--content-buffer-p)
+                 (lambda () t))
+                ((symbol-function 'flymake-mode)
+                 (lambda (value) (setq enabled value))))
+        (heroiclands-eglot--manage-capf)
+        (should (equal enabled 1))
+        (should (memq #'heroiclands-eglot-capf completion-at-point-functions))
+        (heroiclands-eglot--teardown-capf)
+        (should-not (memq #'heroiclands-eglot-capf completion-at-point-functions))
+        (should (equal enabled 1))))))
 
 (ert-deftest heroiclands-eglot-starts-only-in-recognized-notes ()
   (let* ((root (make-temp-file "heroiclands-eglot-" t))

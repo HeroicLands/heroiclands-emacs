@@ -59,11 +59,20 @@ jobs:
                   emacs -Q --batch -L . \
                     --eval '(setq byte-compile-error-on-warn t)' \
                     -f batch-byte-compile \
-                    heroiclands.el heroiclands-hbs.el heroiclands-dataview.el \
-                    heroiclands-index.el heroiclands-goto.el heroiclands-highlight.el
+                    heroiclands.el heroiclands-hbs.el heroiclands-preview.el heroiclands-dataview.el \
+                    heroiclands-server.el heroiclands-index.el heroiclands-goto.el \
+                    heroiclands-highlight.el heroiclands-eglot.el
 
             - name: Build the manual
               run: make info
+
+            - name: Install Pandoc for the browser fixture
+              if: matrix.emacs == '31.1'
+              run: sudo apt-get install -y pandoc
+
+            - name: Check the browser preview
+              if: matrix.emacs == '31.1'
+              run: make check-preview
 
             - name: The manual defines every node its menus reference
               run: |
@@ -74,7 +83,7 @@ jobs:
                                          (expand-file-name "info"))
                               (dolist (n (list "Top" "Quick Reference" "The Mode"
                                                "The Content Index" "Writing Wikilinks"
-                                               "Content Tables" "Querying Content"
+                                               "Live Preview" "Querying Content"
                                                "Record Format" "Troubleshooting"))
                                 (Info-goto-node (format "(heroiclands)%s" n))
                                 (message "node ok: %s" n)))'

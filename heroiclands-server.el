@@ -139,9 +139,7 @@ are accepted.  See Info node `(heroiclands)The Content Index'."
                                   files)))
               (unless (equal state heroiclands-server--buffer-state)
                 (setq heroiclands-server--buffer-state state)
-                (heroiclands-mode-note-index)
-                (when (fboundp 'heroiclands-highlight-refresh)
-                  (heroiclands-highlight-refresh))))))))
+                (heroiclands-mode-note-index)))))))
     (unless active
       (cancel-timer heroiclands-server--refresh-timer)
       (setq heroiclands-server--refresh-timer nil))))
