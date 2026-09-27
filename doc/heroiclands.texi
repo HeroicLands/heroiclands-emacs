@@ -646,8 +646,10 @@ new name or alias in completion.
 
 @vindex heroiclands-goto-canonicalize-on-close
 
-Typing @code{]]} closes a newly entered wikilink.  For a completion you
-selected, Emacs keeps the server's exact target and adds its display name:
+Typing @code{]]} closes a newly entered wikilink.  When paired closing
+brackets are already present, accepting a completion finishes the link and
+leaves point after it.  Emacs keeps the server's exact target and adds its
+display name:
 
 @verbatim
 [[sohl-being-bctrncml]] -> [[sohl-being-bctrncml|Xerathian Bactrian Camel]]
