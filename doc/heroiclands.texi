@@ -24,7 +24,7 @@
 
 Everything this configuration adds, in one place: working across the
 sixteen repositories, editing TypeScript, and authoring content notes —
-previewing the tables a note declares, querying the content index, and
+previewing a content note in a browser, querying the content index, and
 writing wikilinks that are correct before the build ever sees them.
 
 This package is its own repository, so it can be shared and so no single
@@ -48,7 +48,7 @@ below documents itself in @kbd{C-h f}, and this manual is @kbd{C-c h ?}.
 * Content Language Server:: Installing the pinned runtime.
 * The Content Index::       What it is, and how to rebuild it.
 * Writing Wikilinks::       Completion, normalization, and following.
-* Content Tables::          Previewing @code{dataview} blocks.
+* Live Preview::            Previewing the active content note.
 * Querying Content::        Asking questions with jq.
 * Record Format::           Every field a record carries.
 * Handlebars Helpers::      Completion inside a template.
@@ -83,8 +83,8 @@ below documents itself in @kbd{C-h f}, and this manual is @kbd{C-c h ?}.
 @item @kbd{C-c h I} @tab Run a jq query against it.
 @item @kbd{C-c h .} @tab Follow the wikilink at point.
 @item @kbd{C-c h ,} @tab Jump back.
-@item @kbd{C-c h d} @tab Toggle content-table previews.
-@item @kbd{C-c h D} @tab Re-render those previews.
+@item @kbd{C-c h p} @tab Toggle the live browser preview.
+@item @kbd{C-c h P} @tab Reload saved preview context and assets.
 @item @kbd{C-c h H} @tab Describe a Handlebars helper.
 @item @kbd{C-c h R} @tab Rescan the helper sources.
 @item @kbd{C-c h ?} @tab This manual.
@@ -141,7 +141,7 @@ answer from:
 @multitable @columnfractions .5 .5
 @headitem Needs the index @tab Works without it
 @item Eglot completion after @code{[[} @tab Colouring wikilinks by part
-@item Rewriting a link on @code{]]} @tab Content-table previews
+@item Rewriting a link on @code{]]} @tab Live browser preview
 @item @kbd{C-c h .} following a link @tab @kbd{C-c h i}, which builds one
 @item Eglot and Flymake diagnostics @tab The @kbd{C-c h} repository commands
 @end multitable
@@ -159,7 +159,7 @@ a check and would get neither the check nor a reason.
 @end multitable
 
 So the mode still turns on without an index --- withholding it would take
-away the previews and the colouring, which do not need one, and leave no
+away the preview and the colouring, which do not need one, and leave no
 way to see why.  What it does instead is @strong{say so}: the lighter
 reads @samp{HL?} rather than @samp{HL}, and enabling the mode in a buffer
 with no index says once where to get one.
@@ -259,7 +259,7 @@ does not help.  Use @code{eval:}, above.
 
 @kbd{M-x heroiclands-mode} toggles it in the current buffer.  Turning it
 off removes the completions and the wikilink machinery from that buffer
-and clears any content-table previews, which is the point of it being a
+and stops its live preview, which is the point of it being a
 mode: a buffer where you want none of this can say so.
 
 @node Starting Emacs
@@ -560,8 +560,8 @@ produces an identical file.  A rebuild is never noise.
 The server rebuilds the current project at startup and after saves.  Emacs
 notices a complete private index publication and refreshes open buffers.
 An Eglot foreign search, definition, or reference builds missing foreign
-indexes on demand.  Emacs link following and highlighting read only
-complete indexes and do not start foreign builds.
+indexes on demand.  Emacs link following reads only complete indexes and
+does not start foreign builds.
 Use @kbd{C-c h i} when a result looks stale or a rebuild fails.
 
 @section Navigating through Eglot
@@ -770,34 +770,47 @@ an index to check.  Syntax colouring remains available without Eglot or an
 index; the lighter reads @samp{HL?} until the local index is ready.
 @xref{The Mode}.
 
-@node Content Tables
-@chapter Content Tables
+@node Live Preview
+@chapter Live Preview
 
-@cindex dataview
-@cindex tables, content
+@cindex preview, browser
+@cindex tables, SQL
+@findex heroiclands-preview-toggle
+@findex heroiclands-preview-refresh
 
-A content note declares the tables it wants with a fenced
-@code{dataview} query, and the build fills in the rows.  Obsidian used to
-render those live while authoring; this does the same.
+@kbd{C-c h p} opens the current HeroicLands note in a browser window. The
+preview shows the page body with the site's CSS. SQL tables, wikilinks,
+images, code fences, and GM disclosures use the site's transformations.
+Links and heading anchors are visible but do not navigate. The infobox is
+not part of the preview.
 
-@kindex C-c h d
-@findex heroiclands-dataview-mode
+The current buffer is sent to the renderer three seconds after typing stops.
+Typing again resets the timer. Unsaved edits can be previewed without
+writing the note or the site's build directory. Only a completed render
+replaces the page; an error appears above the last good page and in Emacs.
+The browser keeps an approximate scroll position when a new render arrives.
+Each note has its own preview; @kbd{C-c h p} again stops that note's renderer.
+Closing a note buffer stops its renderer as well.
 
-@kbd{C-c h d} toggles previews in the current note; @kbd{C-c h D}
-re-renders them.
+@kbd{C-c h P} reloads saved project notes, configuration, and the theme CSS.
+Use it after another note or an asset changes. The preview reads the same
+project configuration names as @code{heroiclands-mode}: @file{.yaml},
+@file{.yml}, and @file{.mjs}.
 
-Each table appears as an @strong{overlay} below its block.  The buffer is
-never modified, so a preview cannot be saved into the note by accident.
-The buffer's current text is sent to the renderer, so you can edit a
-query and re-render without saving, and a query the expander refuses
-shows its error in place.
+@vindex heroiclands-preview-idle-delay
+@vindex heroiclands-preview-new-window
+@vindex heroiclands-preview-node
 
-@vindex heroiclands-dataview-max-rows
+The renderer uses the pinned package-build installation from
+@code{heroiclands-server-directory}, the project's installed
+@code{@@heroiclands/hugo-theme}, Node, and Pandoc. Run
+@kbd{M-x heroiclands-server-install} if the pinned installation is absent.
+Set @code{heroiclands-preview-idle-delay} to adjust the pause. The default
+@code{heroiclands-preview-new-window} asks @code{browse-url} for a separate
+browser window; the browser decides whether that request opens a window or
+tab. @code{heroiclands-preview-node} selects the Node executable.
 
-It renders through the build's own expander, so a preview cannot disagree
-with what actually ships.  Previews are truncated at
-@code{heroiclands-dataview-max-rows} (40); set it to @code{nil} for every
-row.
+@kbd{C-c C-c p} remains Markdown mode's one-time preview command.
 
 @node Querying Content
 @chapter Querying Content

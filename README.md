@@ -1,8 +1,8 @@
 # heroiclands-emacs
 
 Emacs support for authoring [HeroicLands](https://www.heroiclands.org) content:
-working across the repository constellation, previewing the tables a note
-declares, querying the content index, and writing wikilinks that are correct
+working across the repository constellation, previewing a content note in a browser,
+querying the content index, and writing wikilinks that are correct
 before the build ever sees them.
 
 Everything hangs off the `C-c h` prefix. Press `C-c h` and wait; which-key
@@ -56,9 +56,12 @@ active. A foreign package whose index is unavailable is reported as
 unavailable rather than as a broken link. Build checks still validate the
 published output.
 
-**Content tables, rendered live.** `C-c h d` previews each fenced `dataview`
-block as an overlay beneath it, rendered through the *build's own expander* — so
-a preview cannot disagree with what ships. The buffer is never modified.
+**Live note preview.** `C-c h p` opens a separate browser window for the
+current note. The page updates three seconds after the last edit, including
+unsaved SQL tables, images, links, code fences, and GM disclosures. `C-c h P`
+reloads saved project state, configuration, and assets. Pandoc, the pinned
+server installation, and the project's installed site theme are required. The
+preview never writes to the note or site build directory.
 
 **The content index, queryable.** The pinned language server builds it at
 startup and after saves. `C-c h i` refreshes the current project on demand;
@@ -81,9 +84,9 @@ compile buffer whose diagnostics are clickable.
 ## Requirements
 
 - Emacs 29.1 or newer
-- [`@heroiclands/package-build`](https://github.com/HeroicLands/package-build)
-  in the project for the table expander
-- `node` and `jq` on `PATH`
+- The project's installed `@heroiclands/hugo-theme` for preview styling
+- The pinned content language server installation for preview rendering
+- `node`, `jq`, and `pandoc` on `PATH`
 - `npm` to install the pinned content language server
 - `rg` on `PATH` for `C-c h g` cross-project text search
 - `makeinfo` to build the manual
@@ -115,7 +118,7 @@ line is what actually turns the mode on:
 (require 'heroiclands-index)      ; the content index
 (require 'heroiclands-goto)       ; wikilink normalization and following
 (require 'heroiclands-highlight)  ; wikilink syntax colouring
-(require 'heroiclands-dataview)   ; content-table previews
+(require 'heroiclands-preview)    ; live browser preview
 (require 'heroiclands-hbs)        ; Handlebars helper completion
 (require 'heroiclands-eglot)      ; indexed completion and Xref through Eglot
 
@@ -152,7 +155,7 @@ With `use-package` and a VC recipe (Emacs 29+):
   (require 'heroiclands-server)
   (require 'heroiclands-goto)
   (require 'heroiclands-highlight)
-  (require 'heroiclands-dataview)
+  (require 'heroiclands-preview)
   (require 'heroiclands-hbs)
   (require 'heroiclands-eglot)
   (setq heroiclands-project-roots '("~/dev/github"))
@@ -188,7 +191,7 @@ made:
   (require 'heroiclands-server)
   (require 'heroiclands-goto)
   (require 'heroiclands-highlight)
-  (require 'heroiclands-dataview)
+  (require 'heroiclands-preview)
   (require 'heroiclands-hbs)
   (setq heroiclands-project-roots '("~/dev/github"))
   (global-heroiclands-mode 1))
@@ -214,7 +217,7 @@ The **content index** decides which capabilities are *live*:
 | Needs the index | Works without it |
 | --- | --- |
 | Eglot completion after `[[` | Colouring wikilinks by part |
-| Rewriting a link on `]]` | Content-table previews |
+| Rewriting a link on `]]` | Live browser preview |
 | `C-c h .` following a link | `C-c h i`, which builds one |
 | Eglot and Flymake diagnostics | The `C-c h` repository commands |
 
@@ -226,7 +229,7 @@ is the worst outcome — you asked for a check and would get neither the check n
 a reason; and syntax colouring continues without the server.
 
 So the mode still turns on without an index — withholding it would take away
-the previews and the colouring, which don't need one, and leave no way to see
+the preview and the colouring, which don't need one, and leave no way to see
 why. It also **says so**: the lighter reads `HL?` rather than `HL`, and enabling
 it in a buffer with no index tells you once where to get one.
 
@@ -296,7 +299,7 @@ form in `safe-local-eval-forms`, so Emacs applies it without asking.
 **Just this once.** `M-x heroiclands-mode`.
 
 Turning it off — by that command, or by removing the marking — removes the
-completions, the wikilink machinery, and any table previews from the buffer.
+completions, the wikilink machinery, and the live preview for the buffer.
 That is the point of it being a mode.
 
 #### Two forms that look right and are not
@@ -347,8 +350,8 @@ you ask Emacs.
 | `C-c h I` | Query it with a jq filter |
 | `C-c h .` | Follow the wikilink at point, landing on its anchor |
 | `C-c h ,` | Jump back |
-| `C-c h d` | Toggle content-table previews |
-| `C-c h D` | Re-render them |
+| `C-c h p` | Toggle the live browser preview |
+| `C-c h P` | Reload saved project state and assets in the preview |
 | `C-c h h` | Jump to any repository |
 | `C-c h g` | Ripgrep across every repository at once |
 | `C-c h f` | Find a content note by filename |
@@ -495,7 +498,8 @@ index to check. Syntax colouring still works while Eglot is unavailable.
 | `heroiclands-project-roots` | `nil` | Where to look for projects; nil = no discovered projects |
 | `heroiclands-project-search-depth` | `3` | How far below a root to search |
 | `heroiclands-index-projects` | `all` | Foreign projects for Eglot and local link resolution |
-| `heroiclands-dataview-max-rows` | `40` | Preview truncation; `nil` for all |
+| `heroiclands-preview-idle-delay` | `3` | Idle seconds before rendering |
+| `heroiclands-preview-new-window` | `t` | Request a separate browser window |
 | `heroiclands-index-jq` | `jq` | The jq executable |
 
 ## Documentation
@@ -536,8 +540,8 @@ what keeps `C-h f` and the manual joined up.
 | `heroiclands-index.el` | Refreshing and querying the content index |
 | `heroiclands-goto.el` | Wikilink normalization and following |
 | `heroiclands-eglot.el` | Indexed completion and Xref through the pinned server |
-| `heroiclands-dataview.el` | Content-table previews |
-| `heroiclands-dataview.mjs` | Renders a note's queries through the build's expander |
+| `heroiclands-preview.el` | Live browser preview |
+| `heroiclands-preview.mjs` | Single-page renderer and loopback browser page |
 | `heroiclands-hbs.el` | Handlebars helper completion in `.hbs` templates |
 | `doc/heroiclands.texi` | The manual |
 
