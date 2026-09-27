@@ -89,7 +89,7 @@ compile buffer whose diagnostics are clickable.
 
 ## Requirements
 
-- Emacs 29.1 or newer
+- Emacs 31.1 or newer
 - The project's installed `@heroiclands/hugo-theme` for preview styling
 - The pinned content language server installation for preview rendering
 - `node`, `jq`, and `pandoc` on `PATH`
@@ -149,7 +149,7 @@ server development; its default uses the pinned installation.
 Each `require` after the first is optional — load only the features you want,
 and the mode installs whichever are present.
 
-With `use-package` and a VC recipe (Emacs 29+):
+With `use-package` and a VC recipe:
 
 ```elisp
 (use-package heroiclands
