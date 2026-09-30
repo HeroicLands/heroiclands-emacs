@@ -138,8 +138,9 @@ line is what actually turns the mode on:
 Run `M-x heroiclands-server-install` once after installation or an Emacs
 package upgrade. It runs `npm ci` against this package's exact lockfile in
 `user-emacs-directory/heroiclands/content-language-server/`. The server uses
-its own exact `@heroiclands/package-build` dependency, so project builds and
-`npm run clean` cannot change the editor's runtime or erase its index.
+the `@heroiclands/package-build` version pinned in the installer lockfile, so
+project builds and `npm run clean` cannot change the editor's runtime or erase
+its index.
 The selected server version is in `server/package.json`; the installed server
 and generator versions are in `server/package-lock.json`.
 Customize `heroiclands-server-directory` to change the install location.
