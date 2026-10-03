@@ -4,5 +4,10 @@
   "version": "0.0.0",
   "dependencies": {
     "@heroiclands/content-language-server": "0.2.3"
+  },
+  "overrides": {
+    "@heroiclands/content-language-server": {
+      "@heroiclands/package-build": "22.18.0"
+    }
   }
 }
