@@ -12,7 +12,10 @@ name: CI
 # warning about changes in the development build.
 
 on:
+    push:
+        branches: [main]
     pull_request:
+    workflow_dispatch:
 
 permissions:
     contents: read
@@ -20,7 +23,9 @@ permissions:
 jobs:
     check:
         name: Emacs ${{ matrix.emacs }}
-        runs-on: ubuntu-latest
+        # A throwaway Ubuntu container with sudo: setup-emacs installs through
+        # Nix and the steps below install packages with apt.
+        runs-on: ubuntu-vm
         strategy:
             fail-fast: false
             matrix:
