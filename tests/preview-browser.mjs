@@ -15,6 +15,9 @@ const script = path.join(directory, "../heroiclands-preview.mjs");
 async function start(t, install, root) {
     const child = spawn(process.execPath, [script, install, root, path.join(root, "note.md")],
         { cwd: root, stdio: ["pipe", "pipe", "pipe"] });
+    // A startup diagnostic can arrive just before the helper exits; cleanup may
+    // race that exit. Other unexpected exits are reported by next().
+    child.stdin.on("error", error => { if (error.code !== "EPIPE") throw error; });
     const lines = readline.createInterface({ input: child.stdout });
     const events = [];
     let stderr = "";
@@ -61,6 +64,7 @@ test("browser helper uses shared HTML/CSS, preserves good output and discards st
     const root = fixture(t);
     const install = installFixture(root, `
 export function previewStyles() { return '.hl-preview { color: #24292f }'; }
+export async function readPreviewCurrentDate() { return '720.1'; }
 export async function renderPreview(text, options) {
   if (text === 'invalid') return {ok:false,findings:[{file:options.file,line:2,message:'invalid fixture'}]};
   if (text === 'slow') await new Promise(resolve => setTimeout(resolve, 150));
@@ -75,7 +79,7 @@ export async function renderPreview(text, options) {
     assert.equal((await browser.next()).type, "rendered");
     const initial = await state();
     assert.deepEqual(JSON.parse(initial.body), {
-        text: "initial", dark: false, infobox: true, file: path.join(root, "note.md"),
+        text: "initial", dark: false, infobox: true, file: path.join(root, "note.md"), currentDate: "720.1",
     });
     const page = await (await fetch(ready.url)).text();
     assert.match(page, /link.removeAttribute\('href'\)/);
@@ -97,7 +101,7 @@ export async function renderPreview(text, options) {
     assert.equal(latest.dark, true);
     assert.equal(latest.error, "");
     assert.deepEqual(JSON.parse(latest.body), {
-        text: "latest", dark: true, infobox: false, file: path.join(root, "note.md"),
+        text: "latest", dark: true, infobox: false, file: path.join(root, "note.md"), currentDate: "720.1",
     });
 });
 
@@ -138,4 +142,39 @@ test("real shared renderer starts and updates without a content tree, config, th
     const css = await (await fetch(`${ready.url}style.css`)).text();
     for (const color of ["#6c3fd1", "#c4b0ff", "#f6faff", "#101a28"]) assert.ok(css.includes(color), color);
     assert.deepEqual(fs.readdirSync(root), []);
+    const ageSource = "---\ntype: being\ndata:\n  born: '700.1'\n---\nAge probe: {{ data.age }}\n";
+    browser.send({ type: "render", generation: 3, text: ageSource });
+    assert.equal((await browser.next()).type, "rendered");
+    const defaultDate = await (await fetch(`${ready.url}state`)).json();
+    assert.match(defaultDate.body, /Age probe: 20/);
+    const config = path.join(root, "package-build.config.yaml");
+    fs.writeFileSync(config, 'contentPackage: fixture\ncurrentDate: "740.1"\n');
+    browser.send({ type: "render", generation: 4, text: ageSource });
+    assert.equal((await browser.next()).type, "rendered");
+    const configuredDate = await (await fetch(`${ready.url}state`)).json();
+    assert.match(configuredDate.body, /Age probe: 40/);
+    fs.writeFileSync(config, 'contentPackage: fixture\ncurrentDate: "741.1"\n');
+    browser.send({ type: "render", generation: 5, text: ageSource });
+    assert.equal((await browser.next()).type, "rendered");
+    const refreshedDate = await (await fetch(`${ready.url}state`)).json();
+    assert.match(refreshedDate.body, /Age probe: 41/);
+    fs.writeFileSync(config, 'currentDate: "invalid-date"\n');
+    browser.send({ type: "render", generation: 6, text: ageSource });
+    assert.equal((await browser.next()).type, "error");
+    const invalidDate = await (await fetch(`${ready.url}state`)).json();
+    assert.equal(invalidDate.body, refreshedDate.body);
+    assert.match(invalidDate.error, /currentDate|neutral date/);
+    assert.match(invalidDate.error, /package-build\.config\.yaml/);
+    fs.writeFileSync(config, 'currentDate: "741.1"\n');
+    browser.send({ type: "render", generation: 7,
+        text: "---\ntype: being\ndata:\n  born: '700.1'\n  age: 0\n---\nAge probe: {{ data.age }}\n" });
+    assert.equal((await browser.next()).type, "rendered");
+    const authoredAge = await (await fetch(`${ready.url}state`)).json();
+    assert.match(authoredAge.body, /Age probe: 0/);
+    browser.send({ type: "render", generation: 8,
+        text: "---\ntype: being\ndata:\n  born: unknown\n---\nUnknown birthday\n" });
+    assert.equal((await browser.next()).type, "rendered");
+    const unknownAge = await (await fetch(`${ready.url}state`)).json();
+    assert.doesNotMatch(unknownAge.body, /Not Calculated|<dt>age<\/dt>/);
+    assert.deepEqual(fs.readdirSync(root), ["package-build.config.yaml"]);
 });

@@ -70,16 +70,20 @@ labels, and grey attributes. Image wikilinks include the entire opening `![[`
 marker in blue. Spans are bold throughout, including brackets and attributes,
 while retaining those colors. Definition-list terms are bold; their definitions
 render as normal Markdown. SQL and pagelist fences stay grey; date formatting,
-cross-note references, and maps stay green source. Alerts have an icon, title, and tinted
-background. The palette follows the active Emacs theme, including theme changes.
+cross-note references, and maps stay green source. Alerts have an icon, title,
+and tinted background. The palette follows the active Emacs theme, including theme changes.
 
-Only this buffer is used. No content index, neighboring notes, dependency cache,
-Pandoc, or site theme is required. Generated sections and See also are absent;
-publication/link checks and SQL queries are not run. Computed ages display
-`Not Calculated`. Locally available infobox fields appear when enabled; set
+Content comes from this buffer. No content index, neighboring notes, dependency
+cache, Pandoc, or site theme is required. Generated sections and See also are
+absent; publication/link checks and SQL queries are not run. Authored ages,
+including zero, are preserved; missing ages are computed from neutral birth
+dates using the setting-wide `currentDate`, which defaults to `"720.1"`.
+Unavailable ages are omitted. Locally available infobox fields appear when
+enabled; set
 `heroiclands-preview-show-infobox` to `nil` in a buffer to hide them. `C-c h P`
-renders immediately without restarting the browser. Preview never writes to the
-note or site build directory, and links do not navigate.
+renders immediately without restarting the browser and rereads the project
+current date. Preview never writes to the note or site build directory, and
+links do not navigate.
 
 **The content index, queryable.** The pinned language server builds it at
 startup and after saves. `C-c h i` refreshes the current project on demand;
@@ -709,7 +713,27 @@ everyone.**
 - GPL-3 is what Emacs itself and the rest of the HeroicLands repositories use,
   so code moves between them without a licensing question.
 
-### Developing the source preview
+## Setting date in preview
+
+The top-level `currentDate` in `package-build.config.yaml` supplies the setting's
+current neutral date, shared with all other toolchain outputs:
+
+```yaml
+contentPackage: thalorna
+currentDate: "720.1"
+```
+
+Keep the value quoted. With no configuration or no setting, preview uses
+`"720.1"`. A neutral birth date of `"700.1"` therefore gives age 20 by default;
+`currentDate: "740.1"` gives age 40. Explicit authored ages take precedence.
+Calendar-dependent or unknown birth dates leave an unavailable age omitted.
+Preview reads only this setting, without building content or loading an index,
+and rereads it on each render, including `C-c h P`. An invalid explicit date
+reports the configuration file and leaves the last good page visible. The
+normal `.yml` and trusted executable `.mjs` configuration alternatives are also
+supported; an executable config can perform its own work when imported.
+
+## Developing the source preview
 
 `make check` checks the Emacs controls. `make check-preview` checks the browser
 protocol, error preservation, generation invalidation, and direct shared HTML/CSS
@@ -721,8 +745,10 @@ PREVIEW_PACKAGE_ROOT=/absolute/path/to/package-build make check-preview
 
 The path can also name an installed server directory whose dependencies expose
 `@heroiclands/package-build/preview`. The real integration fixture has no content
-tree, saved note, project config, site theme, or content index. Without this
-explicit path, the real-renderer test is reported as skipped; protocol tests
+tree, saved note, project config, site theme, or content index. It then creates
+and edits a minimal root config to verify current-date overrides, refresh,
+invalid-date errors, authored zero ages, and omitted unavailable ages. Without
+this explicit path, the real-renderer test is reported as skipped; protocol tests
 still run.
 
 Release the package-build version containing the `preview` export before updating

@@ -184,7 +184,8 @@ The current buffer is rendered after `heroiclands-preview-idle-delay'
 seconds without typing.  The browser updates without navigating away.
 Local infobox fields appear when enabled.  Errors leave the last good page
 visible.  Use `heroiclands-preview-refresh' to render immediately.
-Only this buffer is used; no content index or SQL engine is needed.
+Content comes from this buffer; the project current date is reread on render.
+No content index or SQL engine is needed.
 
 See Info node `(heroiclands)Live Preview'."
   :lighter " Preview"

@@ -17,11 +17,16 @@ if (!install || !root || !file) {
 process.chdir(root);
 const installedRequire = createRequire(path.join(install, "package.json"));
 let renderPreview;
+let readPreviewCurrentDate;
 let css;
 try {
     const previewPath = installedRequire.resolve("@heroiclands/package-build/preview");
     const preview = await import(pathToFileURL(previewPath).href);
     renderPreview = preview.renderPreview;
+    readPreviewCurrentDate = preview.readPreviewCurrentDate;
+    if (typeof readPreviewCurrentDate !== "function") {
+        throw new Error("The installed preview API does not provide readPreviewCurrentDate");
+    }
     css = preview.previewStyles();
 } catch (error) {
     process.stdout.write(`${JSON.stringify({ type: "error", message:
@@ -88,8 +93,10 @@ async function run() {
     const job = pending;
     pending = null;
     try {
+        const currentDate = await readPreviewCurrentDate(root);
+        if (job.generation !== requested) return;
         const result = await renderPreview(job.text, {
-            dark: job.dark === true, infobox: job.infobox !== false, file,
+            dark: job.dark === true, infobox: job.infobox !== false, file, currentDate,
         });
         if (job.generation !== requested) return;
         if (!result.ok) {

@@ -944,10 +944,29 @@ remain grey source; date formatting, cross-note references, infobox references,
 and maps remain green source. Alerts render as tinted boxes with their icon,
 title, and Markdown body. Links and heading anchors do not navigate.
 
-The renderer uses only the current buffer. No content index, neighboring note,
-dependency cache, project configuration, SQL engine, Pandoc, or site theme is
-needed. Generated sections and See also are absent. Publication and link checks
-are not performed. Computed ages display @samp{Not Calculated}.
+The renderer uses content from the current buffer. No content index, neighboring
+note, dependency cache, SQL engine, Pandoc, or site theme is needed. Generated
+sections and See also are absent. Publication and link checks are not performed.
+Authored ages, including zero, are preserved. Missing ages are computed from
+neutral birth dates and the setting-wide current date. Unavailable ages are
+omitted.
+
+The top-level @code{currentDate} in @file{package-build.config.yaml} supplies the
+same neutral date used by the rest of the toolchain. Keep it quoted:
+
+@example
+contentPackage: thalorna
+currentDate: "720.1"
+@end example
+
+The default is @code{"720.1"} when no configuration or setting exists. A neutral
+birth date of @code{"700.1"} gives age 20 by default and age 40 when the current
+date is @code{"740.1"}. Unknown or calendar-dependent birth dates leave an
+unavailable age omitted. Preview reads this setting without a content build or
+index and rereads it on every render, including manual refresh. Invalid explicit
+dates report the configuration file and leave the last good page visible.
+The normal @file{.yml} and trusted executable @file{.mjs} alternatives are
+supported; executable configuration can perform its own work when imported.
 
 The current buffer is sent three seconds after typing stops. Typing again resets
 the timer and invalidates outstanding work. Unsaved edits need not be written to
