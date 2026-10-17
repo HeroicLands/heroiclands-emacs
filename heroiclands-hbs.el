@@ -31,6 +31,7 @@
 
 (require 'subr-x)
 (require 'cl-lib)
+(require 'project)
 
 (defgroup heroiclands-hbs nil "Handlebars helper completion." :group 'heroiclands)
 
