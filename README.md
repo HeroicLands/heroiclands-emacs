@@ -65,9 +65,12 @@ published output.
 **Live note preview.** `C-c h p` opens a browser window for the current
 buffer. The page updates three seconds after the last edit. Ordinary Markdown,
 local expressions, tables, and alerts render immediately. Wikilinks and spans
-keep their complete source: blue brackets, purple addresses, bold labels, and
-grey attributes. SQL and pagelist fences stay grey; date formatting, cross-note
-references, and maps stay green source. Alerts have an icon, title, and tinted
+keep their complete source: blue brackets, purple addresses, bold foreground
+labels, and grey attributes. Image wikilinks include the entire opening `![[`
+marker in blue. Spans are bold throughout, including brackets and attributes,
+while retaining those colors. Definition-list terms are bold; their definitions
+render as normal Markdown. SQL and pagelist fences stay grey; date formatting,
+cross-note references, and maps stay green source. Alerts have an icon, title, and tinted
 background. The palette follows the active Emacs theme, including theme changes.
 
 Only this buffer is used. No content index, neighboring notes, dependency cache,

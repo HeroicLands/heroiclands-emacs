@@ -936,7 +936,10 @@ every HeroicLands markup construct.
 @kbd{C-c h p} opens the current HeroicLands buffer in a browser window.
 Ordinary Markdown, local expressions, tables, and alerts render from the buffer.
 Wikilinks and spans retain their complete source: blue brackets, purple
-addresses, bold foreground labels, and grey attributes. SQL and pagelist fences
+addresses, bold foreground labels, and grey attributes. The complete opening
+@code{![[} marker of an image wikilink is blue. Spans are bold throughout,
+including brackets and attributes, with those same colors. Definition-list terms
+are bold; their definitions render as normal Markdown. SQL and pagelist fences
 remain grey source; date formatting, cross-note references, infobox references,
 and maps remain green source. Alerts render as tinted boxes with their icon,
 title, and Markdown body. Links and heading anchors do not navigate.
