@@ -46,7 +46,7 @@ check: compile
 	$(EMACS) -Q --batch -L . -l tests/heroiclands-preview-test.el -f ert-run-tests-batch-and-exit
 
 check-preview:
-	node --test tests/preview-browser.mjs tests/preview-infobox.mjs
+	node --test tests/preview-browser.mjs
 
 ## Activate the canonical hooks in this clone and its linked worktrees.
 ## The relative path resolves against each worktree's own checkout.

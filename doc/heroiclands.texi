@@ -87,7 +87,7 @@ Use @kbd{M-x heroiclands-find-note} there to find a note.
 @item @kbd{C-c h .} @tab Follow the wikilink at point.
 @item @kbd{C-c h ,} @tab Jump back.
 @item @kbd{C-c h p} @tab Toggle the live browser preview.
-@item @kbd{C-c h P} @tab Reload saved preview context and assets.
+@item @kbd{C-c h P} @tab Render the current buffer immediately.
 @item @kbd{C-c h H} @tab Describe a Handlebars helper.
 @item @kbd{C-c h R} @tab Rescan the helper sources.
 @item @kbd{C-c h ?} @tab This manual.
@@ -933,43 +933,51 @@ every HeroicLands markup construct.
 @findex heroiclands-preview-toggle
 @findex heroiclands-preview-refresh
 
-@kbd{C-c h p} opens the current HeroicLands note in a browser window. The
-preview shows the page body with the site's CSS. SQL tables, wikilinks,
-images, code fences, and GM disclosures use the site's transformations.
-Links and heading anchors are visible but do not navigate. A note with a
-generated infobox shows its boxes in the site's order. On a wide screen the
-rail sits beside the prose; on a narrow screen it sits above it.
+@kbd{C-c h p} opens the current HeroicLands buffer in a browser window.
+Ordinary Markdown, local expressions, tables, and alerts render from the buffer.
+Wikilinks and spans retain their complete source: blue brackets, purple
+addresses, bold foreground labels, and grey attributes. SQL and pagelist fences
+remain grey source; date formatting, cross-note references, infobox references,
+and maps remain green source. Alerts render as tinted boxes with their icon,
+title, and Markdown body. Links and heading anchors do not navigate.
 
-The current buffer is sent to the renderer three seconds after typing stops.
-Typing again resets the timer. Unsaved edits can be previewed without
-writing the note or the site's build directory. Only a completed render
-replaces the page; an error appears above the last good page and in Emacs.
-The browser keeps an approximate scroll position when a new render arrives.
-Each note has its own preview; @kbd{C-c h p} again stops that note's renderer.
-Closing a note buffer stops its renderer as well.
+The renderer uses only the current buffer. No content index, neighboring note,
+dependency cache, project configuration, SQL engine, Pandoc, or site theme is
+needed. Generated sections and See also are absent. Publication and link checks
+are not performed. Computed ages display @samp{Not Calculated}.
 
-@kbd{C-c h P} reloads saved project notes, configuration, and the theme CSS.
-Use it after another note or an asset changes. The preview reads the same
-project configuration names as @code{heroiclands-mode}: @file{.yaml},
-@file{.yml}, and @file{.mjs}.
+The current buffer is sent three seconds after typing stops. Typing again resets
+the timer and invalidates outstanding work. Unsaved edits need not be written to
+the note or site build directory. Only a completed render replaces the page;
+an error appears above the last good page and in Emacs. The browser preserves
+an approximate scroll position. Each note has its own preview; @kbd{C-c h p}
+again stops that renderer. Closing the note buffer stops its renderer too.
+
+@kbd{C-c h P} renders immediately without restarting the browser. The palette
+follows the active Emacs frame's light or dark background mode, defaults to light,
+and updates when a theme is enabled or disabled. Browser color preferences do
+not override the selected mode.
 
 @vindex heroiclands-preview-idle-delay
 @vindex heroiclands-preview-new-window
 @vindex heroiclands-preview-show-infobox
 @vindex heroiclands-preview-node
 
-The renderer uses the pinned package-build installation from
-@code{heroiclands-server-directory}, the project's installed
-@code{@@heroiclands/hugo-theme}, Node, and Pandoc. Run
-@kbd{M-x heroiclands-server-install} if the pinned installation is absent.
+The renderer uses Node and the shared HTML/CSS API exported as
+@code{@@heroiclands/package-build/preview}, resolved from
+@code{heroiclands-server-directory}. The installed toolchain must contain a
+package-build release providing that export. The current locked server version
+is unchanged; upgrading that lock follows publication of the new package-build
+release. An installation without the export reports a clear upgrade error.
+Reinstalling an older pinned version does not supply the new renderer.
+
 Set @code{heroiclands-preview-idle-delay} to adjust the pause. The default
 @code{heroiclands-preview-new-window} asks @code{browse-url} for a separate
-browser window; the browser decides whether that request opens a window or
-tab. Set @code{heroiclands-preview-show-infobox} to @code{nil} in a buffer
-to show only its body, then run @kbd{C-c h P}. The infobox reads generated
-page metadata, so an unsaved change to its inputs appears after the same
-idle pause as the body. @code{heroiclands-preview-node} selects the Node
-executable.
+window; the browser decides whether it opens a window or tab. Set
+@code{heroiclands-preview-show-infobox} to @code{nil} in a buffer to show only
+its body, then run @kbd{C-c h P}. The infobox displays locally available authored
+fields and updates after the same idle pause as the body.
+@code{heroiclands-preview-node} selects the Node executable.
 
 @kbd{C-c C-c p} remains Markdown mode's one-time preview command.
 

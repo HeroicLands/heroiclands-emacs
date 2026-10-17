@@ -96,7 +96,7 @@
         (should (null heroiclands-preview--process))
         (should (null heroiclands-preview--url))))))
 
-(ert-deftest heroiclands-preview-refresh-restarts-on-the-same-port ()
+(ert-deftest heroiclands-preview-refresh-renders-without-restarting ()
   (with-temp-buffer
     (setq heroiclands-preview-mode t
           heroiclands-preview--url "http://127.0.0.1:8123/")
@@ -104,9 +104,53 @@
       (cl-letf (((symbol-function 'heroiclands-preview--send)
                  (lambda (message) (push message sent))))
         (heroiclands-preview-refresh)
-        (should (= heroiclands-preview--restart-port 8123))
-        (should (equal (plist-get (car sent) :type) "stop"))
-        (should (equal (plist-get (cadr sent) :type) "invalidate"))))))
+        (should (= heroiclands-preview--generation 1))
+        (should (= (length sent) 1))
+        (should (equal (plist-get (car sent) :type) "render"))
+        (should-not (plist-member (car sent) :refresh))))))
+
+(ert-deftest heroiclands-preview-selects-explicit-theme-palette ()
+  (with-temp-buffer
+    (setq heroiclands-preview-mode t)
+    (let (sent)
+      (dolist (mode '(light dark nil))
+        (cl-letf (((symbol-function 'frame-parameter)
+                   (lambda (_frame _parameter) mode))
+                  ((symbol-function 'heroiclands-preview--send)
+                   (lambda (message) (setq sent message))))
+          (heroiclands-preview--render)
+          (should (eq (plist-get sent :dark)
+                      (if (eq mode 'dark) t :false))))))))
+
+(ert-deftest heroiclands-preview-uses-its-own-frame-palette ()
+  (with-temp-buffer
+    (setq heroiclands-preview-mode t
+          heroiclands-preview--frame 'owning-frame)
+    (let (sent)
+      (cl-letf (((symbol-function 'frame-live-p)
+                 (lambda (frame) (eq frame 'owning-frame)))
+                ((symbol-function 'frame-parameter)
+                 (lambda (frame _parameter)
+                   (if (eq frame 'owning-frame) 'dark 'light)))
+                ((symbol-function 'heroiclands-preview--send)
+                 (lambda (message) (setq sent message))))
+        (heroiclands-preview--render)
+        (should (eq (plist-get sent :dark) t))))))
+
+(ert-deftest heroiclands-preview-theme-change-updates-active-buffers ()
+  (let ((active (generate-new-buffer " *preview-active*"))
+        (inactive (generate-new-buffer " *preview-inactive*"))
+        updated)
+    (unwind-protect
+        (progn
+          (with-current-buffer active (setq heroiclands-preview-mode t))
+          (cl-letf (((symbol-function 'heroiclands-preview-refresh)
+                     (lambda () (push (current-buffer) updated))))
+            (run-hook-with-args 'enable-theme-functions 'fixture)
+            (run-hook-with-args 'disable-theme-functions 'fixture))
+          (should (equal updated (list active active))))
+      (kill-buffer active)
+      (kill-buffer inactive))))
 
 (ert-deftest heroiclands-preview-can-hide-infobox-per-buffer ()
   (with-temp-buffer

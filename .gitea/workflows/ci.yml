@@ -64,10 +64,6 @@ jobs:
             - name: Build the manual
               run: make info
 
-            - name: Install Pandoc for the browser fixture
-              if: matrix.emacs == '31.1'
-              run: sudo apt-get install -y pandoc
-
             - name: Check the browser preview
               if: matrix.emacs == '31.1'
               run: make check-preview

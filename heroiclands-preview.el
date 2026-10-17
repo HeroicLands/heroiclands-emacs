@@ -27,7 +27,7 @@ See Info node `(heroiclands)Live Preview'."
   :type 'boolean :group 'heroiclands-preview)
 
 (defcustom heroiclands-preview-show-infobox t
-  "Show the site's generated infobox beside a note when it has one.
+  "Show locally available infobox fields beside a note when it has them.
 
 Set this buffer-locally to hide a note's infobox, then run
 `heroiclands-preview-refresh'.  See Info node `(heroiclands)Live Preview'."
@@ -48,7 +48,7 @@ See Info node `(heroiclands)Live Preview'."
 (defvar-local heroiclands-preview--ready nil)
 (defvar-local heroiclands-preview--url nil)
 (defvar-local heroiclands-preview--opened nil)
-(defvar-local heroiclands-preview--restart-port nil)
+(defvar-local heroiclands-preview--frame nil)
 
 (defun heroiclands-preview--send (message)
   "Send MESSAGE as one JSON line to this buffer's renderer."
@@ -56,14 +56,17 @@ See Info node `(heroiclands)Live Preview'."
     (process-send-string heroiclands-preview--process
                          (concat (json-serialize message) "\n"))))
 
-(defun heroiclands-preview--render (&optional refresh)
-  "Render the current buffer, rereading saved project state when REFRESH."
+(defun heroiclands-preview--render ()
+  "Render the current buffer using its owning frame's light or dark palette."
   (when heroiclands-preview-mode
     (heroiclands-preview--send
      `(:type "render" :generation ,heroiclands-preview--generation
        :text ,(buffer-substring-no-properties (point-min) (point-max))
        :infobox ,(if heroiclands-preview-show-infobox t :false)
-       :refresh ,(if refresh t :false)))))
+       :dark ,(if (eq (frame-parameter
+                       (and (frame-live-p heroiclands-preview--frame)
+                            heroiclands-preview--frame)
+                       'background-mode) 'dark) t :false)))))
 
 (defun heroiclands-preview--changed (&rest _)
   "Reset the idle render timer after an edit."
@@ -123,16 +126,12 @@ See Info node `(heroiclands)Live Preview'."
       (when (and heroiclands-preview-mode
                  (eq process heroiclands-preview--process)
                  (not (process-live-p process)))
-        (if heroiclands-preview--restart-port
-            (let ((port heroiclands-preview--restart-port))
-              (setq heroiclands-preview--restart-port nil)
-              (heroiclands-preview--launch port))
-          (message "HeroicLands preview stopped; see %s"
-                   (buffer-name heroiclands-preview--output))
-          (heroiclands-preview-mode -1))))))
+        (message "HeroicLands preview stopped; see %s"
+                 (buffer-name heroiclands-preview--output))
+        (heroiclands-preview-mode -1)))))
 
-(defun heroiclands-preview--launch (&optional port)
-  "Start this note's renderer, reusing PORT after a manual refresh."
+(defun heroiclands-preview--launch ()
+  "Start this note's renderer."
   (let* ((root (expand-file-name
                 (or (heroiclands--project-root)
                     (user-error "No content project contains this note"))))
@@ -140,10 +139,9 @@ See Info node `(heroiclands)Live Preview'."
          (output (or (and (buffer-live-p heroiclands-preview--output)
                           heroiclands-preview--output)
                      (generate-new-buffer " *HeroicLands preview*")))
-         (command (append (list heroiclands-preview-node script
-                                (expand-file-name heroiclands-server-directory)
-                                root (expand-file-name buffer-file-name))
-                          (when port (list (number-to-string port)))))
+         (command (list heroiclands-preview-node script
+                        (expand-file-name heroiclands-server-directory)
+                        root (expand-file-name buffer-file-name)))
          (process (make-process
                    :name "heroiclands-preview"
                    :buffer output
@@ -175,8 +173,8 @@ See Info node `(heroiclands)Live Preview'."
   (setq heroiclands-preview--process nil
         heroiclands-preview--ready nil
         heroiclands-preview--url nil
-        heroiclands-preview--restart-port nil
-        heroiclands-preview--opened nil))
+        heroiclands-preview--opened nil
+        heroiclands-preview--frame nil))
 
 ;;;###autoload
 (define-minor-mode heroiclands-preview-mode
@@ -184,9 +182,9 @@ See Info node `(heroiclands)Live Preview'."
 
 The current buffer is rendered after `heroiclands-preview-idle-delay'
 seconds without typing.  The browser updates without navigating away.
-Generated infoboxes appear beside the page when present.  Errors leave the
-last good page visible.  Use
-`heroiclands-preview-refresh' to reload saved project state and assets.
+Local infobox fields appear when enabled.  Errors leave the last good page
+visible.  Use `heroiclands-preview-refresh' to render immediately.
+Only this buffer is used; no content index or SQL engine is needed.
 
 See Info node `(heroiclands)Live Preview'."
   :lighter " Preview"
@@ -198,9 +196,8 @@ See Info node `(heroiclands)Live Preview'."
               (user-error "Live preview needs a visiting HeroicLands note"))
             (unless (executable-find heroiclands-preview-node)
               (user-error "Node executable not found: %s" heroiclands-preview-node))
-            (unless (executable-find "pandoc")
-              (user-error "Pandoc is required for live preview"))
-            (setq heroiclands-preview--generation 0)
+            (setq heroiclands-preview--generation 0
+                  heroiclands-preview--frame (selected-frame))
             (heroiclands-preview--launch)
             (add-hook 'after-change-functions #'heroiclands-preview--changed nil t)
             (add-hook 'kill-buffer-hook #'heroiclands-preview--stop nil t))
@@ -219,7 +216,7 @@ See Info node `(heroiclands)Live Preview'."
 
 ;;;###autoload
 (defun heroiclands-preview-refresh ()
-  "Refresh the preview and reread saved project state and assets.
+  "Render the current buffer immediately with the active theme palette.
 
 See Info node `(heroiclands)Live Preview'."
   (interactive)
@@ -229,17 +226,17 @@ See Info node `(heroiclands)Live Preview'."
     (cancel-timer heroiclands-preview--timer)
     (setq heroiclands-preview--timer nil))
   (cl-incf heroiclands-preview--generation)
-  (if (and heroiclands-preview--url
-           (string-match ":[0-9]+/\\'" heroiclands-preview--url))
-      (progn
-        (setq heroiclands-preview--restart-port
-              (string-to-number
-               (substring heroiclands-preview--url
-                          (1+ (match-beginning 0)) (1- (match-end 0)))))
-        (heroiclands-preview--send
-         `(:type "invalidate" :generation ,heroiclands-preview--generation))
-        (heroiclands-preview--send '(:type "stop")))
-    (heroiclands-preview--render t)))
+  (heroiclands-preview--render))
+
+(defun heroiclands-preview--theme-changed (&rest _)
+  "Render all active previews when the enabled theme changes."
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when heroiclands-preview-mode
+        (heroiclands-preview-refresh)))))
+
+(add-hook 'enable-theme-functions #'heroiclands-preview--theme-changed)
+(add-hook 'disable-theme-functions #'heroiclands-preview--theme-changed)
 
 (define-key heroiclands-prefix-map (kbd "p") #'heroiclands-preview-toggle)
 (define-key heroiclands-prefix-map (kbd "P") #'heroiclands-preview-refresh)

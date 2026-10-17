@@ -12,91 +12,130 @@ import readline from "node:readline";
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const script = path.join(directory, "../heroiclands-preview.mjs");
 
-test("browser page renders representative content and keeps the last good page", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "hl-preview-browser-"));
-    const install = path.join(root, "install");
-    const packageRoot = path.join(install, "node_modules/@heroiclands/package-build");
-    const theme = path.join(root, "node_modules/@heroiclands/hugo-theme/static/css");
-    const note = path.join(root, "note.md");
-    fs.mkdirSync(path.join(packageRoot, "engine"), { recursive: true });
-    fs.mkdirSync(theme, { recursive: true });
-    fs.writeFileSync(path.join(install, "package.json"), "{}\n");
-    fs.writeFileSync(path.join(packageRoot, "package.json"),
-        JSON.stringify({ name: "@heroiclands/package-build", type: "module", exports: { "./package.json": "./package.json" } }));
-    const generatedBoxes = [{ id: "profile", kind: "note", title: "Profile", sections: [
-        { layout: "rows", label: "Facts", rows: [
-            { label: "Population", kind: "number", value: 1500 },
-            { label: "Patron", kind: "link", value: { text: "A & B", url: "/patron/" } },
-        ] },
-    ] }];
-    fs.writeFileSync(path.join(packageRoot, "engine/index.mjs"), `
-export const sitePreview = { async prepareSitePreview() {
-  return { async render(_file, text) {
-    if (text.includes('invalid query')) return {ok:false,findings:[{file:'note.md',line:2,message:'invalid query'}]};
-    const boxes = ${JSON.stringify(generatedBoxes)};
-    if (text.includes('Revised')) boxes[0].title = 'Revised Profile';
-    return {ok:true,markdown:text,frontmatter:{infoboxes:boxes},findings:[]};
-  }, async refresh() {}, async close() {} };
-} };\n`);
-    fs.writeFileSync(path.join(theme, "style.css"),
-        "body { color: #123456; } .single-with-sidebar { display: grid; } " +
-        "@media(max-width:960px) { .single-with-sidebar { grid-template-columns: 1fr; } }\n");
-    fs.writeFileSync(note, "fixture\n");
-    const child = spawn("node", [script, install, root, note],
+async function start(t, install, root) {
+    const child = spawn(process.execPath, [script, install, root, path.join(root, "note.md")],
         { cwd: root, stdio: ["pipe", "pipe", "pipe"] });
     const lines = readline.createInterface({ input: child.stdout });
     const events = [];
+    let stderr = "";
+    child.stderr.on("data", chunk => { stderr += chunk; });
     lines.on("line", line => events.push(JSON.parse(line)));
-    const next = () => new Promise((resolve, reject) => {
-        const deadline = setTimeout(() => reject(new Error("preview event timed out")), 15000);
-        const poll = () => {
-            if (events.length) { clearTimeout(deadline); resolve(events.shift()); }
-            else setTimeout(poll, 10);
-        };
-        poll();
+    const exited = new Promise(resolve => child.once("exit", resolve));
+    t.after(async () => {
+        if (child.exitCode === null) {
+            child.stdin.end('{"type":"stop"}\n');
+            await exited;
+        }
     });
-    try {
-        const ready = await next();
-        assert.equal(ready.type, "ready");
-        const markdown = "# A heading\n\n[Place](/somewhere/)\n\n| Name | Value |\n| --- | --- |\n| A | 1 |\n\n![Map](https://example.org/map.webp)\n\n```js\nconst x = 1;\n```\n\n<details><summary>Spoiler</summary>GM clue</details>\n";
-        child.stdin.write(JSON.stringify({ type: "render", generation: 1, text: markdown }) + "\n");
-        assert.equal((await next()).type, "rendered");
-        const state = await (await fetch(`${ready.url}state`)).json();
-        assert.match(state.body, /<table>/);
-        assert.match(state.body, /<img /);
-        assert.match(state.body, /<pre\b/);
-        assert.match(state.body, /<details>/);
-        assert.match(state.body, /Place/);
-        assert.match(state.infobox, /class="info-sidebar info-box info-box-profile"/);
-        assert.match(state.infobox, /Population<\/dt><dd>1,500/);
-        assert.match(state.infobox, /A &amp; B/);
-        const page = await (await fetch(ready.url)).text();
-        assert.match(page, /link.removeAttribute\('href'\)/);
-        assert.match(page, /heading.removeAttribute\('id'\)/);
-        assert.match(page, /classList.toggle\('single-with-sidebar'/);
-        const style = await (await fetch(`${ready.url}style.css`)).text();
-        assert.match(style, /#123456/);
-        assert.match(style, /@media\(max-width:960px\)/);
-        child.stdin.write(JSON.stringify({ type: "render", generation: 2, text: "invalid query" }) + "\n");
-        assert.equal((await next()).type, "error");
-        const failed = await (await fetch(`${ready.url}state`)).json();
-        assert.equal(failed.body, state.body);
-        assert.equal(failed.infobox, state.infobox);
-        assert.match(failed.error, /invalid query/);
-        child.stdin.write(JSON.stringify({ type: "render", generation: 3, text: markdown,
-            infobox: false }) + "\n");
-        assert.equal((await next()).type, "rendered");
-        const bodyOnly = await (await fetch(`${ready.url}state`)).json();
-        assert.equal(bodyOnly.infobox, "");
-        child.stdin.write(JSON.stringify({ type: "render", generation: 4,
-            text: "Revised", infobox: true }) + "\n");
-        assert.equal((await next()).type, "rendered");
-        const revised = await (await fetch(`${ready.url}state`)).json();
-        assert.match(revised.infobox, /Revised Profile/);
-    } finally {
-        child.stdin.write('{"type":"stop"}\n');
-        child.stdin.end();
-        await new Promise(resolve => child.once("exit", resolve));
-        fs.rmSync(root, { recursive: true, force: true });
-    }
+    const next = async () => {
+        const deadline = Date.now() + 15000;
+        while (!events.length) {
+            if (child.exitCode !== null) throw new Error(`preview exited: ${stderr}`);
+            if (Date.now() > deadline) throw new Error(`preview event timed out: ${stderr}`);
+            await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        return events.shift();
+    };
+    return { next, send: message => child.stdin.write(JSON.stringify(message) + "\n") };
+}
+
+function fixture(t) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "hl-preview-browser-"));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    return root;
+}
+
+function installFixture(root, source) {
+    const install = path.join(root, "install");
+    const packageRoot = path.join(install, "node_modules/@heroiclands/package-build");
+    fs.mkdirSync(packageRoot, { recursive: true });
+    fs.writeFileSync(path.join(install, "package.json"), "{}\n");
+    fs.writeFileSync(path.join(packageRoot, "package.json"), JSON.stringify({
+        name: "@heroiclands/package-build", type: "module", exports: { "./preview": "./preview.mjs" },
+    }));
+    fs.writeFileSync(path.join(packageRoot, "preview.mjs"), source);
+    return install;
+}
+
+test("browser helper uses shared HTML/CSS, preserves good output and discards stale renders", async t => {
+    const root = fixture(t);
+    const install = installFixture(root, `
+export function previewStyles() { return '.hl-preview { color: #24292f }'; }
+export async function renderPreview(text, options) {
+  if (text === 'invalid') return {ok:false,findings:[{file:options.file,line:2,message:'invalid fixture'}]};
+  if (text === 'slow') await new Promise(resolve => setTimeout(resolve, 150));
+  return {ok:true,html:JSON.stringify({text, ...options}),frontmatter:{},findings:[]};
+}
+`);
+    const browser = await start(t, install, root);
+    const ready = await browser.next();
+    assert.equal(ready.type, "ready");
+    const state = async () => (await fetch(`${ready.url}state`)).json();
+    browser.send({ type: "render", generation: 1, text: "initial" });
+    assert.equal((await browser.next()).type, "rendered");
+    const initial = await state();
+    assert.deepEqual(JSON.parse(initial.body), {
+        text: "initial", dark: false, infobox: true, file: path.join(root, "note.md"),
+    });
+    const page = await (await fetch(ready.url)).text();
+    assert.match(page, /link.removeAttribute\('href'\)/);
+    assert.match(page, /heading.removeAttribute\('id'\)/);
+    assert.match(page, /scrollY \/ \(document.documentElement.scrollHeight - innerHeight\)/);
+    assert.match(page, /event.preventDefault\(\)/);
+    assert.match(await (await fetch(`${ready.url}style.css`)).text(), /\.hl-preview/);
+    browser.send({ type: "render", generation: 2, text: "invalid" });
+    assert.equal((await browser.next()).type, "error");
+    const failed = await state();
+    assert.equal(failed.body, initial.body);
+    assert.equal(failed.version, initial.version);
+    assert.match(failed.error, /note\.md:2: invalid fixture/);
+    browser.send({ type: "render", generation: 3, text: "slow" });
+    browser.send({ type: "invalidate", generation: 4 });
+    browser.send({ type: "render", generation: 4, text: "latest", dark: true, infobox: false });
+    assert.deepEqual(await browser.next(), { type: "rendered", generation: 4 });
+    const latest = await state();
+    assert.equal(latest.dark, true);
+    assert.equal(latest.error, "");
+    assert.deepEqual(JSON.parse(latest.body), {
+        text: "latest", dark: true, infobox: false, file: path.join(root, "note.md"),
+    });
+});
+
+test("missing shared export reports an actionable upgrade error", async t => {
+    const root = fixture(t);
+    fs.writeFileSync(path.join(root, "package.json"), "{}\n");
+    const browser = await start(t, root, root);
+    const error = await browser.next();
+    assert.equal(error.type, "error");
+    assert.match(error.message, /requires package-build with the preview export/);
+    assert.match(error.message, /Update the pinned server installation/);
+});
+
+test("real shared renderer starts and updates without a content tree, config, theme, or index", {
+    skip: process.env.PREVIEW_PACKAGE_ROOT ? false : "Set PREVIEW_PACKAGE_ROOT to a package-build checkout or installed server directory with the preview export",
+}, async t => {
+    const root = fixture(t);
+    // The project deliberately contains no note on disk and no dependencies.
+    const browser = await start(t, path.resolve(process.env.PREVIEW_PACKAGE_ROOT), root);
+    const ready = await browser.next();
+    assert.equal(ready.type, "ready");
+    const source = `---\nname: Local note\nshortcode: local\ntype: being\nage: 17\n---\n# Unsaved heading\n\n[[missing/address|A label]]{.name}\n\n> [!NOTE]\n> Local alert\n\n\`\`\`sql\nselect * from missing\n\`\`\`\n\n| Name | Value |\n| --- | --- |\n| A | 1 |\n`;
+    browser.send({ type: "render", generation: 1, text: source });
+    assert.equal((await browser.next()).type, "rendered");
+    const first = await (await fetch(`${ready.url}state`)).json();
+    assert.match(first.body, /hl-preview-light/);
+    assert.match(first.body, /Unsaved heading/);
+    assert.match(first.body, /missing\/address/);
+    assert.match(first.body, /Local alert/);
+    assert.match(first.body, /<table/);
+    assert.match(first.body, /select \* from missing/);
+    browser.send({ type: "render", generation: 2, text: "# Revised\n\n[[elsewhere|Changed]]", dark: true, infobox: false });
+    assert.equal((await browser.next()).type, "rendered");
+    const updated = await (await fetch(`${ready.url}state`)).json();
+    assert.match(updated.body, /hl-preview-dark/);
+    assert.match(updated.body, /Revised/);
+    assert.doesNotMatch(updated.body, /Unsaved heading/);
+    const css = await (await fetch(`${ready.url}style.css`)).text();
+    for (const color of ["#6c3fd1", "#c4b0ff", "#f6faff", "#101a28"]) assert.ok(css.includes(color), color);
+    assert.deepEqual(fs.readdirSync(root), []);
 });
